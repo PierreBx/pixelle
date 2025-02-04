@@ -6,7 +6,7 @@ on:
       - master
     paths-ignore:
       - .gitignore
-      - README.md
+      - README_INITIAL.md
       - LICENSE
 
   # Allows you to run this workflow manually from the Actions tab
