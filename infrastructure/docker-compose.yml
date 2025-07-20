@@ -10,13 +10,13 @@ services:
       - GRIST_SINGLE_ORG=true
       - APP_HOME_URL=http://localhost:8484
   jekyll:
-    build: ../jekyll-website
+    build: ../pixelle-website
     container_name: jekyll_container
     ports:
       - "4000:4000"
       - "35729:35729"  # livereload port (optional)
     volumes:
-      - ../jekyll-website:/srv/jekyll
+      - ../pixelle-website:/srv/jekyll
     working_dir: /srv/jekyll
     environment:
       - JEKYLL_ENV=development
