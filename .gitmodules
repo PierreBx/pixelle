@@ -1,3 +1,3 @@
-[submodule "pixelle-jekyll"]
-	path = pixelle-jekyll
-	url = https://github.com/PierreBx/pixelle-jekyll.git
+[submodule "pixelle-website"]
+	path = pixelle-website
+	url = https://github.com/PierreBx/pixelle-website.git
