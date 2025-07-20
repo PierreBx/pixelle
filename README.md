@@ -15,33 +15,48 @@ Pixelle site:           https://pierrebx.github.io/pixelle/
 
 ## Raspberry pi
 
-# Installation
+### Installation
 Linux server 
 
-# Hostname
+### Hostname
 hostname:               raspberrypixel-server.local   
 
-# Users
+### Users
 username:               pierre // pixelle.rasp
 
-# Initial update 
+### Initial update 
 ```bash
 sudo apt update
 sudo apt full-upgrade -y
 sudo reboot
 ```
 
-Activate ssh, firwall and security
+### Activate ssh, firewall and security
 ```bash
 sudo ufw allow OpenSSH
 sudo ufw enable
 sudo systemctl enable ssh
 ```
 
-Install git
+### Install git
 ```bash
 sudo apt update
 sudo apt install git -y
 ```
+
+### Clone repos
+
+```bash
+# 1. Create a root folder for your project
+mkdir -p ~/pixelle
+cd ~/pixelle
+
+# 2. Clone the main Pixelle project into the current folder
+git clone https://github.com/YOUR-USERNAME/pixelle.git .
+
+# 3. Clone the Jekyll site inside the project (nested repo)
+git clone https://github.com/YOUR-USERNAME/pixelle-jekyll.git
+```
+
 
 
