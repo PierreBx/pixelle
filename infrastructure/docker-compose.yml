@@ -1,0 +1,69 @@
+services:
+  grist:
+    image: gristlabs/grist:latest
+    container_name: grist_container
+    ports:
+      - "8484:8484"
+    volumes:
+      - ../grist-database/grist-data:/persist
+    environment:
+      - GRIST_SINGLE_ORG=true
+      - APP_HOME_URL=http://localhost:8484
+  jekyll:
+    build: ../jekyll-website
+    container_name: jekyll_container
+    ports:
+      - "4000:4000"
+      - "35729:35729"  # livereload port (optional)
+    volumes:
+      - ../jekyll-website:/srv/jekyll
+    working_dir: /srv/jekyll
+    environment:
+      - JEKYLL_ENV=development
+    command: sh -c "bundle install && yarn install && bundle exec jekyll serve --host 0.0.0.0 --livereload --force_polling"
+  flutter:
+    build:
+      context: .
+      dockerfile: ../flutter-app/Dockerfile
+      args:
+        USER_ID: ${USER_ID:-1000}
+        GROUP_ID: ${GROUP_ID:-1000}
+        USERNAME: ${USERNAME:-flutter}
+    container_name: flutter_dev
+    volumes:
+      # Mount your entire project directory (adjust the path as needed)
+      - ./:/project
+      # Mount Flutter cache to persist between container restarts
+      - flutter_cache:/home/${USERNAME:-flutter}/.flutter
+      # Mount pub cache to persist packages
+      - pub_cache:/home/${USERNAME:-flutter}/.pub-cache
+      # Mount Android SDK cache (from cirrusci image)
+      - android_cache:/home/cirrus/sdks/android-sdk
+      # Mount git config
+      - ~/.gitconfig:/home/${USERNAME:-flutter}/.gitconfig:ro
+      # Mount SSH keys if needed
+      - ~/.ssh:/home/${USERNAME:-flutter}/.ssh:ro
+    environment:
+      - DISPLAY=${DISPLAY:-:0}
+      - USER_ID=${USER_ID:-1000}
+      - GROUP_ID=${GROUP_ID:-1000}
+      - USERNAME=${USERNAME:-flutter}
+      - FLUTTER_MODULE_PATH=${FLUTTER_MODULE_PATH:-flutter_app}
+    ports:
+      # Flutter web dev server
+      - "8080:8080"
+      # Common dev ports
+      - "3000:3000"
+      - "4000:4000"
+      - "5000:5000"
+    # Enable GUI applications (if needed for Android emulator)
+    privileged: true
+    stdin_open: true
+    tty: true
+    working_dir: /project/${FLUTTER_MODULE_PATH:-flutter_app}
+    command: bash
+
+volumes:
+  flutter_cache:
+  pub_cache:
+  android_cache:
