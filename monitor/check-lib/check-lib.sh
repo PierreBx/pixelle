@@ -42,5 +42,19 @@ check_container() {
     echo -e "\033[1;33m⚠️  Stopped\033[0m"
     return 1
   fi
-
 }
+
+# Function: Check if Raspberry Pi is ON (reachable via ping)
+check_server_on() {
+  local HOST="$1"
+  local TIMEOUT="${2:-1}"   # default timeout is 1 second
+
+  if ping -c 1 -W "$TIMEOUT" "$HOST" &> /dev/null; then
+    echo -e "🟢 Raspberry Pi ($HOST) is \033[1;32mON\033[0m"
+    return 0
+  else
+    echo -e "🔴 Raspberry Pi ($HOST) is \033[1;31mOFF or unreachable\033[0m"
+    return 1
+  fi
+}
+
