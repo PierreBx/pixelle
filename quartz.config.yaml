@@ -21,27 +21,34 @@ configuration:
       header: Schibsted Grotesk
       body: Source Sans Pro
       code: IBM Plex Mono
+    # Palette « bleu nuit ». Contrast against the page background was measured
+    # with the WCAG formula; every text role clears 4.5:1 in both modes.
+    # Role names are Quartz's, not literal colours:
+    #   light = page background      lightgray = borders and rules
+    #   gray  = muted text, dates    darkgray  = body text
+    #   dark  = headings             secondary = links
+    #   tertiary = link hover
     colors:
       lightMode:
-        light: "#faf8f8"
-        lightgray: "#e5e5e5"
-        gray: "#b8b8b8"
-        darkgray: "#4e4e4e"
-        dark: "#2b2b2b"
-        secondary: "#284b63"
-        tertiary: "#84a59d"
-        highlight: rgba(143, 159, 169, 0.15)
-        textHighlight: "#fff23688"
+        light: "#fbfcfd"
+        lightgray: "#d2dae2"
+        gray: "#626f7c" # 5.01:1
+        darkgray: "#48545f" # 7.55:1
+        dark: "#1b2229" # 15.64:1
+        secondary: "#2c6a9e" # 5.58:1
+        tertiary: "#1f5a8a" # 7.08:1 — darker than the link, so hover reads
+        highlight: rgba(44, 106, 158, 0.10)
+        textHighlight: "#2c6a9e33"
       darkMode:
-        light: "#161618"
-        lightgray: "#393639"
-        gray: "#646464"
-        darkgray: "#d4d4d4"
-        dark: "#ebebec"
-        secondary: "#7b97aa"
-        tertiary: "#84a59d"
-        highlight: rgba(143, 159, 169, 0.15)
-        textHighlight: "#b3aa0288"
+        light: "#0f1419"
+        lightgray: "#313c47"
+        gray: "#7d8b99" # 5.31:1
+        darkgray: "#c3ced9" # 11.59:1
+        dark: "#eef3f8" # 16.58:1
+        secondary: "#6ba3d0" # 6.85:1
+        tertiary: "#8fc4e8" # 9.90:1 — lighter than the link, so hover reads
+        highlight: rgba(107, 163, 208, 0.13)
+        textHighlight: "#6ba3d055"
 plugins:
   - source: "@quartz-community/created-modified-date"
     enabled: true
