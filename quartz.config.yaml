@@ -250,11 +250,15 @@ plugins:
         - description
         - tags
         - aliases
-      # Plomberie de publication, pas du contenu : ces clés pilotent le script
-      # de synchronisation et n'ont aucun sens pour un lecteur.
+      # publish/homepage : plomberie de publication, pas du contenu — ces clés
+      # pilotent le script de synchronisation.
+      # created/modified : déjà affichées sous le titre par content-meta, elles
+      # faisaient doublon dans le tableau.
       excludedProperties:
         - publish
         - homepage
+        - created
+        - modified
       hidePropertiesView: false
       delimiters: ---
       language: yaml
