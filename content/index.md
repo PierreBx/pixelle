@@ -8,6 +8,6 @@ modified: 2026-07-31
 
 Notes de lecture, d'écoute et de spectacle : cinéma, musique, danse, photographie.
 
-## Les billets
+## Les Billets
 
 ![[allPosts.base]]
