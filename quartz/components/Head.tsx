@@ -97,6 +97,28 @@ export default (() => {
         {js
           .filter((resource) => resource.loadTime === "beforeDOMReady")
           .map((res) => JSResourceToScriptElement(res, true))}
+
+        {/*
+          LOCAL MODIFICATION — dark by default, see README « Personnalisation ».
+
+          The darkmode plugin resolves the initial theme as
+          `localStorage.getItem("theme") ?? (prefers-color-scheme: light ? "light" : "dark")`,
+          so a visitor whose system asks for light gets light. This overrides
+          that default to dark while leaving a deliberate choice untouched:
+          once the toggle writes localStorage, the branch below stops firing.
+
+          It must stay after the beforeDOMReady scripts above, which is where
+          the plugin sets `saved-theme`. Nothing has painted yet at this point,
+          so correcting the attribute here causes no flash.
+
+          Re-apply this block when upgrading Quartz.
+        */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{if(!localStorage.getItem("theme"))document.documentElement.setAttribute("saved-theme","dark")}catch(e){document.documentElement.setAttribute("saved-theme","dark")}`,
+          }}
+        />
+
         {additionalHead.map((resource) => {
           if (typeof resource === "function") {
             return resource(fileData)

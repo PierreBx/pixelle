@@ -149,3 +149,17 @@ diff -ru /tmp/quartz-new/quartz ./quartz | less
 Reportez les changements de `quartz/`, `package.json` et
 `quartz.config.default.yaml`. Ne perdez pas les réglages de
 `quartz.config.yaml`, notamment `explicit-publish: enabled: true`.
+
+### Modification locale à reporter
+
+`quartz/components/Head.tsx` contient un ajout signalé par un commentaire
+`LOCAL MODIFICATION`. Il force le mode sombre par défaut, ce que le plugin
+`darkmode` ne sait pas configurer. Sans lui, un visiteur dont le système
+demande le mode clair verrait le site en clair.
+
+C'est le seul endroit où le code de Quartz est modifié. Vérifiez qu'il est
+toujours là après une mise à jour :
+
+```bash
+grep -n "LOCAL MODIFICATION" quartz/components/Head.tsx
+```
