@@ -18,3 +18,7 @@ Thumbs.db
 
 # Quartz treats `private/` as ignored content; keep it out of git too.
 private/
+
+# Local Claude Code state (machine-specific permission allowlist).
+# The skills in .claude/skills/ are project config and stay tracked.
+.claude/settings.local.json
