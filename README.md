@@ -105,7 +105,7 @@ VAULT_PATH=/autre/coffre npm run sync
 2. `git remote add origin git@github.com:<utilisateur>/<dépôt>.git`
 3. Dans *Settings → Pages*, choisir **GitHub Actions** comme source.
 4. Renseigner `baseUrl` dans `quartz.config.yaml`.
-5. Pousser sur `master`.
+5. Pousser sur `main`.
 
 ## Mettre Quartz à jour
 
