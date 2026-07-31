@@ -404,16 +404,37 @@ async function main() {
   }
 
   if (dangling.length) {
-    console.log(
-      c.yellow(`\n${dangling.length} link(s) point outside the published set — they will not resolve:`),
-    )
-    const shown = dangling.slice(0, 15)
-    for (const d of shown) console.log(c.dim(`  ${d.from} -> [[${d.target}]]`))
-    if (dangling.length > shown.length) {
-      console.log(c.dim(`  ... and ${dangling.length - shown.length} more`))
+    // Grouped by target rather than listed per occurrence: one missing note
+    // linked from thirty places is one thing to fix, not thirty. A flat list
+    // also truncates badly once the site grows past a handful of notes.
+    const byTarget = new Map()
+    for (const d of dangling) {
+      if (!byTarget.has(d.target)) byTarget.set(d.target, [])
+      byTarget.get(d.target).push(d.from)
     }
+    const rows = [...byTarget.entries()].sort(
+      (a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]),
+    )
+
     console.log(
-      c.dim(`\n  This is expected when a published note links to a private one.`),
+      c.yellow(
+        `\n${dangling.length} link(s) to ${rows.length} missing target(s) — they will not resolve:`,
+      ),
+    )
+
+    const limit = VERBOSE ? rows.length : 25
+    for (const [target, froms] of rows.slice(0, limit)) {
+      const count = froms.length > 1 ? c.dim(` (x${froms.length})`) : ""
+      // One example source is enough to locate it; --verbose lists them all.
+      const where = VERBOSE ? froms.join(", ") : froms[0]
+      console.log(`  ${`[[${target}]]`.padEnd(30)}${count} ${c.dim(where)}`)
+    }
+    if (rows.length > limit) {
+      console.log(c.dim(`  ... and ${rows.length - limit} more — run with --verbose`))
+    }
+
+    console.log(
+      c.dim(`\n  Expected when a published note links to a private or unwritten one.`),
     )
     console.log(
       c.dim(`  Nothing private was copied — the link simply renders as plain text.`),
