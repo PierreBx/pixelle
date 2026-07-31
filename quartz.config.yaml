@@ -254,11 +254,16 @@ plugins:
       # pilotent le script de synchronisation.
       # created/modified : déjà affichées sous le titre par content-meta, elles
       # faisaient doublon dans le tableau.
+      # summary : résumé long d'un billet (plusieurs milliers de caractères, et
+      # qui révèle le dénouement). Il est rendu dans le corps de la note, sous
+      # un encart repliable ; en propriété il déversait tout en clair, en une
+      # ligne de tableau, au-dessus du texte.
       excludedProperties:
         - publish
         - homepage
         - created
         - modified
+        - summary
       hidePropertiesView: false
       delimiters: ---
       language: yaml
