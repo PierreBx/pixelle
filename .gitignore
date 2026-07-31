@@ -1,0 +1,20 @@
+node_modules/
+public/
+.quartz-cache/
+.quartz/
+quartz/cli/tui/dist/
+tsconfig.tsbuildinfo
+prof/
+.turbo/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+*.iml
+
+# Obsidian metadata must never be copied out of the vault.
+.obsidian/
+
+# Quartz treats `private/` as ignored content; keep it out of git too.
+private/

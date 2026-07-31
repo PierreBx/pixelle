@@ -1,0 +1,400 @@
+#!/usr/bin/env node
+/**
+ * Sync published notes from the Obsidian vault into content/.
+ *
+ * The rule is opt-in and absolute: a note is copied only if its YAML
+ * frontmatter contains `publish: true`. Everything else in the vault is
+ * invisible to this script, and therefore to the site and to GitHub.
+ *
+ * Attachments (images, PDFs) are copied only when a published note actually
+ * references them. Referenced *notes* are never pulled in implicitly — if a
+ * published note links to an unpublished one, the link is reported as dangling
+ * rather than silently dragging private content into the build.
+ *
+ * Usage:
+ *   node scripts/sync-vault.mjs [--dry-run] [--verbose]
+ *   VAULT_PATH=/some/other/vault node scripts/sync-vault.mjs
+ */
+
+import { readFile, writeFile, mkdir, rm, copyFile, stat } from "node:fs/promises"
+import { existsSync } from "node:fs"
+import path from "node:path"
+import { fileURLToPath } from "node:url"
+import { globby } from "globby"
+import YAML from "yaml"
+
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
+const CONTENT_DIR = path.join(REPO_ROOT, "content")
+
+const VAULT_PATH = process.env.VAULT_PATH ?? "/home/ipro0800/Documents/data/obsidian/petersVault"
+
+const DRY_RUN = process.argv.includes("--dry-run")
+const VERBOSE = process.argv.includes("--verbose")
+
+/** Vault directories never scanned, for privacy or noise. */
+const IGNORED_DIRS = [
+  ".obsidian",
+  ".trash",
+  ".git",
+  ".idea",
+  "node_modules",
+  ".claude",
+]
+
+/** Extensions copied as attachments when referenced by a published note. */
+const ATTACHMENT_EXTS = new Set([
+  ".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif", ".svg", ".bmp", ".ico",
+  ".pdf",
+  ".mp3", ".wav", ".m4a", ".ogg", ".flac",
+  ".mp4", ".webm", ".mov",
+])
+
+const c = {
+  dim: (s) => `\x1b[2m${s}\x1b[0m`,
+  red: (s) => `\x1b[31m${s}\x1b[0m`,
+  green: (s) => `\x1b[32m${s}\x1b[0m`,
+  yellow: (s) => `\x1b[33m${s}\x1b[0m`,
+  bold: (s) => `\x1b[1m${s}\x1b[0m`,
+}
+
+/** Split leading YAML frontmatter from a markdown document. */
+function splitFrontmatter(raw) {
+  if (!raw.startsWith("---")) return { frontmatter: null, body: raw }
+  // Frontmatter ends at the first `---` line after the opening one.
+  const match = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/.exec(raw)
+  if (!match) return { frontmatter: null, body: raw }
+  return { frontmatter: match[1], body: raw.slice(match[0].length) }
+}
+
+function parseFrontmatter(raw, relPath) {
+  const { frontmatter } = splitFrontmatter(raw)
+  if (frontmatter === null) return null
+  try {
+    return YAML.parse(frontmatter) ?? {}
+  } catch (err) {
+    console.warn(c.yellow(`  ! unparseable frontmatter in ${relPath}: ${err.message}`))
+    return null
+  }
+}
+
+/**
+ * `publish` must be the boolean true, or the strings "true"/"yes".
+ * Anything else — absent, false, null, a date — means do not publish.
+ */
+function isPublished(frontmatter) {
+  if (!frontmatter) return false
+  const v = frontmatter.publish
+  if (v === true) return true
+  if (typeof v === "string") return ["true", "yes"].includes(v.trim().toLowerCase())
+  return false
+}
+
+/**
+ * Collect every `[[target]]`, `![[target]]` and `![](target)` reference in a
+ * document, frontmatter included (Obsidian allows wikilinks in field values,
+ * e.g. `banner: "[[cover.jpeg]]"`).
+ *
+ * Returns bare targets with any `|alias`, `#heading` and `^block` stripped.
+ */
+function extractReferences(raw) {
+  const refs = new Set()
+
+  for (const m of raw.matchAll(/!?\[\[([^\]]+?)\]\]/g)) {
+    let target = m[1]
+    target = target.split("|")[0]
+    target = target.split("#")[0]
+    target = target.split("^")[0]
+    target = target.trim()
+    if (target) refs.add(target)
+  }
+
+  // Markdown-style embeds/links pointing at local files.
+  for (const m of raw.matchAll(/!?\[[^\]]*?\]\(([^)]+?)\)/g)) {
+    let target = decodeURIComponent(m[1].trim())
+    if (/^[a-z][a-z0-9+.-]*:/i.test(target)) continue // http:, mailto:, etc.
+    if (target.startsWith("#")) continue
+    target = target.split("#")[0].trim()
+    if (target) refs.add(target)
+  }
+
+  return [...refs]
+}
+
+/** Recursively list every file in the vault, minus ignored directories. */
+async function listVaultFiles() {
+  return globby("**/*", {
+    cwd: VAULT_PATH,
+    dot: false,
+    onlyFiles: true,
+    followSymbolicLinks: false,
+    ignore: IGNORED_DIRS.map((d) => `**/${d}/**`),
+  })
+}
+
+/**
+ * Index non-markdown files by basename (with and without extension) so that
+ * Obsidian's shortest-path wikilinks can be resolved back to a real file.
+ * Collisions are recorded so we can warn instead of guessing silently.
+ */
+function buildAttachmentIndex(allFiles) {
+  const index = new Map()
+  const add = (key, relPath) => {
+    const lower = key.toLowerCase()
+    if (!index.has(lower)) index.set(lower, [])
+    index.get(lower).push(relPath)
+  }
+
+  for (const relPath of allFiles) {
+    const ext = path.extname(relPath).toLowerCase()
+    if (!ATTACHMENT_EXTS.has(ext)) continue
+    const base = path.basename(relPath)
+    add(relPath, relPath)
+    add(base, relPath)
+    add(base.slice(0, -ext.length), relPath)
+  }
+  return index
+}
+
+/** Index published markdown by the same keys, to detect dangling note links. */
+function buildNoteIndex(relPaths) {
+  const index = new Set()
+  for (const relPath of relPaths) {
+    const base = path.basename(relPath, ".md")
+    index.add(relPath.toLowerCase())
+    index.add(relPath.slice(0, -3).toLowerCase())
+    index.add(base.toLowerCase())
+  }
+  return index
+}
+
+function resolveAttachment(target, attachmentIndex) {
+  const candidates =
+    attachmentIndex.get(target.toLowerCase()) ??
+    attachmentIndex.get(path.basename(target).toLowerCase())
+  if (!candidates || candidates.length === 0) return null
+  return { relPath: candidates[0], ambiguous: candidates.length > 1, candidates }
+}
+
+async function copyIfChanged(src, dest) {
+  await mkdir(path.dirname(dest), { recursive: true })
+  if (existsSync(dest)) {
+    const [a, b] = await Promise.all([stat(src), stat(dest)])
+    if (a.size === b.size && a.mtimeMs <= b.mtimeMs) return false
+  }
+  await copyFile(src, dest)
+  return true
+}
+
+async function main() {
+  if (!existsSync(VAULT_PATH)) {
+    console.error(c.red(`Vault not found: ${VAULT_PATH}`))
+    console.error(`Set VAULT_PATH to override.`)
+    process.exit(1)
+  }
+
+  console.log(c.bold(`\nSyncing published notes`))
+  console.log(`  vault   ${c.dim(VAULT_PATH)}`)
+  console.log(`  content ${c.dim(CONTENT_DIR)}`)
+  if (DRY_RUN) console.log(c.yellow(`  dry run — nothing will be written\n`))
+  else console.log()
+
+  const allFiles = await listVaultFiles()
+  const markdownFiles = allFiles.filter((f) => f.toLowerCase().endsWith(".md"))
+
+  // ---- 1. Decide what is published -------------------------------------
+  const published = []
+  for (const relPath of markdownFiles) {
+    const raw = await readFile(path.join(VAULT_PATH, relPath), "utf8")
+    const frontmatter = parseFrontmatter(raw, relPath)
+    if (!isPublished(frontmatter)) continue
+    published.push({ relPath, raw, frontmatter })
+  }
+
+  if (published.length === 0) {
+    console.log(c.yellow(`No notes carry \`publish: true\` — nothing to sync.`))
+    console.log(
+      c.dim(`Add \`publish: true\` to a note's frontmatter to publish it.\n`),
+    )
+  }
+
+  // ---- 2. Resolve attachments referenced by published notes -------------
+  const attachmentIndex = buildAttachmentIndex(allFiles)
+  const noteIndex = buildNoteIndex(published.map((p) => p.relPath))
+
+  const attachmentsToCopy = new Map() // vault relPath -> referencing notes
+  const dangling = [] // { from, target }
+  const ambiguous = [] // { from, target, candidates }
+
+  for (const note of published) {
+    for (const target of extractReferences(note.raw)) {
+      const ext = path.extname(target).toLowerCase()
+
+      // A reference with no extension, or an explicit .md, is a note link.
+      if (ext === "" || ext === ".md") {
+        const key = target.toLowerCase().replace(/\.md$/, "")
+        if (!noteIndex.has(key) && !noteIndex.has(`${key}.md`)) {
+          dangling.push({ from: note.relPath, target })
+        }
+        continue
+      }
+
+      const hit = resolveAttachment(target, attachmentIndex)
+      if (!hit) {
+        dangling.push({ from: note.relPath, target })
+        continue
+      }
+      if (hit.ambiguous) {
+        ambiguous.push({ from: note.relPath, target, candidates: hit.candidates })
+      }
+      if (!attachmentsToCopy.has(hit.relPath)) attachmentsToCopy.set(hit.relPath, [])
+      attachmentsToCopy.get(hit.relPath).push(note.relPath)
+    }
+  }
+
+  // ---- 3. Work out the exact desired state of content/ ------------------
+  const desired = new Set([
+    ...published.map((p) => p.relPath),
+    ...attachmentsToCopy.keys(),
+  ])
+
+  const existing = existsSync(CONTENT_DIR)
+    ? await globby("**/*", { cwd: CONTENT_DIR, dot: false, onlyFiles: true })
+    : []
+
+  // A homepage is generated only when the vault does not publish one itself.
+  const vaultHasIndex = desired.has("index.md")
+  const generatedIndex = "index.md"
+
+  const stale = existing.filter(
+    (f) => !desired.has(f) && !(f === generatedIndex && !vaultHasIndex),
+  )
+
+  // ---- 4. Apply ---------------------------------------------------------
+  let written = 0
+  let unchanged = 0
+
+  for (const note of published) {
+    const dest = path.join(CONTENT_DIR, note.relPath)
+    if (!DRY_RUN) {
+      await mkdir(path.dirname(dest), { recursive: true })
+      const prev = existsSync(dest) ? await readFile(dest, "utf8") : null
+      if (prev === note.raw) {
+        unchanged++
+      } else {
+        await writeFile(dest, note.raw, "utf8")
+        written++
+        if (VERBOSE) console.log(c.green(`  + ${note.relPath}`))
+      }
+    } else if (VERBOSE) {
+      console.log(c.green(`  + ${note.relPath}`))
+    }
+  }
+
+  let attachmentsWritten = 0
+  for (const relPath of attachmentsToCopy.keys()) {
+    if (DRY_RUN) {
+      if (VERBOSE) console.log(c.green(`  + ${relPath}`))
+      continue
+    }
+    const changed = await copyIfChanged(
+      path.join(VAULT_PATH, relPath),
+      path.join(CONTENT_DIR, relPath),
+    )
+    if (changed) {
+      attachmentsWritten++
+      if (VERBOSE) console.log(c.green(`  + ${relPath}`))
+    }
+  }
+
+  for (const relPath of stale) {
+    if (!DRY_RUN) await rm(path.join(CONTENT_DIR, relPath), { force: true })
+    console.log(c.red(`  - ${relPath} ${c.dim("(unpublished)")}`))
+  }
+
+  if (!vaultHasIndex) {
+    const homepage = buildHomepage(published)
+    if (!DRY_RUN) {
+      await mkdir(CONTENT_DIR, { recursive: true })
+      await writeFile(path.join(CONTENT_DIR, generatedIndex), homepage, "utf8")
+    }
+  }
+
+  // ---- 5. Report --------------------------------------------------------
+  console.log(c.bold(`\nSummary`))
+  console.log(`  ${published.length} note(s) published, ${attachmentsToCopy.size} attachment(s)`)
+  if (!DRY_RUN) {
+    console.log(
+      c.dim(`  ${written} note(s) written, ${unchanged} unchanged, ${attachmentsWritten} attachment(s) copied`),
+    )
+  }
+  if (stale.length) console.log(c.dim(`  ${stale.length} file(s) removed`))
+  if (!vaultHasIndex) {
+    console.log(c.dim(`  index.md generated (no published note maps to index.md)`))
+  }
+
+  if (ambiguous.length) {
+    console.log(c.yellow(`\n${ambiguous.length} ambiguous attachment name(s) — first match used:`))
+    for (const a of ambiguous.slice(0, 10)) {
+      console.log(c.dim(`  ${a.target} (in ${a.from}) -> ${a.candidates[0]}`))
+    }
+  }
+
+  if (dangling.length) {
+    console.log(
+      c.yellow(`\n${dangling.length} link(s) point outside the published set — they will not resolve:`),
+    )
+    const shown = dangling.slice(0, 15)
+    for (const d of shown) console.log(c.dim(`  ${d.from} -> [[${d.target}]]`))
+    if (dangling.length > shown.length) {
+      console.log(c.dim(`  ... and ${dangling.length - shown.length} more`))
+    }
+    console.log(
+      c.dim(`\n  This is expected when a published note links to a private one.`),
+    )
+    console.log(
+      c.dim(`  Nothing private was copied — the link simply renders as plain text.`),
+    )
+  }
+
+  console.log()
+}
+
+/** A simple landing page listing published notes, grouped by vault folder. */
+function buildHomepage(published) {
+  const byFolder = new Map()
+  for (const note of published) {
+    const folder = path.dirname(note.relPath)
+    const key = folder === "." ? "" : folder
+    if (!byFolder.has(key)) byFolder.set(key, [])
+    byFolder.get(key).push(note)
+  }
+
+  // `publish: true` is required: the ExplicitPublish filter drops any page
+  // without it, and would otherwise silently delete this homepage.
+  const lines = ["---", "title: Accueil", "publish: true", "---", ""]
+
+  if (published.length === 0) {
+    lines.push(
+      "Aucune note publiée pour le moment.",
+      "",
+      "Ajoutez `publish: true` au frontmatter d'une note de votre coffre Obsidian,",
+      "puis relancez `npm run sync`.",
+      "",
+    )
+    return lines.join("\n")
+  }
+
+  for (const key of [...byFolder.keys()].sort()) {
+    if (key !== "") lines.push(`## ${key}`, "")
+    const notes = byFolder.get(key).sort((a, b) => a.relPath.localeCompare(b.relPath))
+    for (const note of notes) {
+      const title = note.frontmatter?.title ?? path.basename(note.relPath, ".md")
+      lines.push(`- [[${note.relPath.slice(0, -3)}|${title}]]`)
+    }
+    lines.push("")
+  }
+
+  return lines.join("\n")
+}
+
+await main()
