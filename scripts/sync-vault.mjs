@@ -97,6 +97,15 @@ function isPublished(frontmatter) {
 }
 
 /**
+ * `homepage: true` designates the note that becomes the site's landing page.
+ * It does not imply publication: the note still needs `publish: true`, so the
+ * flag can never pull an unpublished note onto the front page by itself.
+ */
+function isHomepage(frontmatter) {
+  return frontmatter?.homepage === true
+}
+
+/**
  * Collect every `[[target]]`, `![[target]]` and `![](target)` reference in a
  * document, frontmatter included (Obsidian allows wikilinks in field values,
  * e.g. `banner: "[[cover.jpeg]]"`).
@@ -210,11 +219,30 @@ async function main() {
 
   // ---- 1. Decide what is published -------------------------------------
   const published = []
+  const homepageButUnpublished = []
   for (const relPath of markdownFiles) {
     const raw = await readFile(path.join(VAULT_PATH, relPath), "utf8")
     const frontmatter = parseFrontmatter(raw, relPath)
-    if (!isPublished(frontmatter)) continue
+    if (!isPublished(frontmatter)) {
+      // Worth flagging: the intent is clear but the note would stay invisible.
+      if (isHomepage(frontmatter)) homepageButUnpublished.push(relPath)
+      continue
+    }
     published.push({ relPath, raw, frontmatter })
+  }
+
+  // ---- 1b. Resolve the landing page ------------------------------------
+  // At most one note may claim it; ties are broken by path so that repeated
+  // runs give the same result rather than depending on directory order.
+  const claimants = published
+    .filter((p) => isHomepage(p.frontmatter))
+    .sort((a, b) => a.relPath.localeCompare(b.relPath))
+  const homepageNote = claimants[0] ?? null
+  const rejectedClaimants = claimants.slice(1)
+
+  // Each note's destination, which is its vault path unless it is the homepage.
+  for (const note of published) {
+    note.dest = note === homepageNote ? "index.md" : note.relPath
   }
 
   if (published.length === 0) {
@@ -226,7 +254,9 @@ async function main() {
 
   // ---- 2. Resolve attachments referenced by published notes -------------
   const attachmentIndex = buildAttachmentIndex(allFiles)
-  const noteIndex = buildNoteIndex(published.map((p) => p.relPath))
+  // Built from destinations, not sources: a link to the homepage note under its
+  // old name genuinely will not resolve, and should be reported as such.
+  const noteIndex = buildNoteIndex(published.map((p) => p.dest))
 
   const attachmentsToCopy = new Map() // vault relPath -> referencing notes
   const dangling = [] // { from, target }
@@ -260,7 +290,7 @@ async function main() {
 
   // ---- 3. Work out the exact desired state of content/ ------------------
   const desired = new Set([
-    ...published.map((p) => p.relPath),
+    ...published.map((p) => p.dest),
     ...attachmentsToCopy.keys(),
   ])
 
@@ -268,7 +298,8 @@ async function main() {
     ? await globby("**/*", { cwd: CONTENT_DIR, dot: false, onlyFiles: true })
     : []
 
-  // A homepage is generated only when the vault does not publish one itself.
+  // A homepage is generated only when the vault does not supply one, either as
+  // a note marked `homepage: true` or a note literally at `index.md`.
   const vaultHasIndex = desired.has("index.md")
   const generatedIndex = "index.md"
 
@@ -281,7 +312,9 @@ async function main() {
   let unchanged = 0
 
   for (const note of published) {
-    const dest = path.join(CONTENT_DIR, note.relPath)
+    const label =
+      note.dest === note.relPath ? note.relPath : `${note.relPath} -> ${note.dest}`
+    const dest = path.join(CONTENT_DIR, note.dest)
     if (!DRY_RUN) {
       await mkdir(path.dirname(dest), { recursive: true })
       const prev = existsSync(dest) ? await readFile(dest, "utf8") : null
@@ -290,10 +323,10 @@ async function main() {
       } else {
         await writeFile(dest, note.raw, "utf8")
         written++
-        if (VERBOSE) console.log(c.green(`  + ${note.relPath}`))
+        if (VERBOSE) console.log(c.green(`  + ${label}`))
       }
     } else if (VERBOSE) {
-      console.log(c.green(`  + ${note.relPath}`))
+      console.log(c.green(`  + ${label}`))
     }
   }
 
@@ -335,8 +368,32 @@ async function main() {
     )
   }
   if (stale.length) console.log(c.dim(`  ${stale.length} file(s) removed`))
-  if (!vaultHasIndex) {
-    console.log(c.dim(`  index.md generated (no published note maps to index.md)`))
+  if (homepageNote) {
+    console.log(c.dim(`  homepage from ${homepageNote.relPath}`))
+  } else if (!vaultHasIndex) {
+    console.log(
+      c.dim(`  index.md generated (no note carries \`homepage: true\`)`),
+    )
+  }
+
+  if (rejectedClaimants.length) {
+    console.log(
+      c.yellow(`\n${rejectedClaimants.length + 1} notes carry \`homepage: true\` — only one can be the landing page:`),
+    )
+    console.log(c.dim(`  used:    ${homepageNote.relPath}`))
+    for (const r of rejectedClaimants) {
+      console.log(c.dim(`  ignored: ${r.relPath} (published at its normal path)`))
+    }
+  }
+
+  if (homepageButUnpublished.length) {
+    console.log(
+      c.yellow(`\n${homepageButUnpublished.length} note(s) carry \`homepage: true\` but not \`publish: true\`:`),
+    )
+    for (const p of homepageButUnpublished) console.log(c.dim(`  ${p}`))
+    console.log(
+      c.dim(`  They stay unpublished. Add \`publish: true\` to use one as the homepage.`),
+    )
   }
 
   if (ambiguous.length) {

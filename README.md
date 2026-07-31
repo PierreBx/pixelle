@@ -51,6 +51,35 @@ GitHub Actions reconstruit le site et le déploie. Le workflow ne lance
 **pas** `sync` : le coffre n'existe pas sur le runner, la construction part
 uniquement du `content/` commité.
 
+### Choisir la page d'accueil
+
+Par défaut, `content/index.md` est **généré** : une simple liste des notes
+publiées, groupée par dossier. Pour écrire l'accueil vous-même, ajoutez
+`homepage: true` au frontmatter de la note de votre choix :
+
+```yaml
+---
+title: Bienvenue
+publish: true
+homepage: true
+---
+```
+
+La note est alors copiée vers `content/index.md` au lieu de son emplacement
+habituel, et la génération automatique est désactivée.
+
+Trois garde-fous :
+
+- `homepage: true` **n'implique pas** la publication. Sans `publish: true`, la
+  note reste invisible ; le script le signale plutôt que de la publier.
+- Si plusieurs notes portent le drapeau, la première dans l'ordre alphabétique
+  devient l'accueil ; les autres sont publiées normalement, avec un
+  avertissement. Le résultat ne dépend donc pas de l'ordre du système de
+  fichiers.
+- La note change d'adresse : elle est servie à la racine du site. Un lien
+  `[[Ma note d'accueil]]` ailleurs dans le coffre ne résoudra plus, et le
+  script le listera parmi les liens morts.
+
 ### Dépublier une note
 
 Retirez `publish: true` (ou passez-le à `false`) dans le coffre, puis relancez
