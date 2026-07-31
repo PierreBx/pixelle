@@ -250,7 +250,11 @@ plugins:
         - description
         - tags
         - aliases
-      excludedProperties: []
+      # Plomberie de publication, pas du contenu : ces clés pilotent le script
+      # de synchronisation et n'ont aucun sens pour un lecteur.
+      excludedProperties:
+        - publish
+        - homepage
       hidePropertiesView: false
       delimiters: ---
       language: yaml
