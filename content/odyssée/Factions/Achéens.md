@@ -13,9 +13,4 @@ Coalition des royaumes grecs (Achéens) partis assiéger Troie pour reprendre H�
 
 ## Membres
 
-```dataview
-LIST WITHOUT ID file.link
-FROM #odyssey/character
-WHERE contains(file.outlinks, this.file.link)
-SORT file.name
-```
+![[factionMembers.base]]

@@ -17,38 +17,4 @@ Au lever du jour, Télémaque convoque la première assemblée d'Ithaque depuis 
 
 ## Événements
 
-```dataview
-LIST WITHOUT ID file.link
-FROM #odyssey/event
-WHERE contains(file.outlinks, this.file.link)
-SORT file.name
-```
-
-## Personnages
-
-```dataview
-LIST WITHOUT ID char
-FROM "odyssée/Chants"
-FLATTEN characters AS char
-WHERE file.path = this.file.path
-```
-
-## Lieux
-
-```dataview
-LIST WITHOUT ID place
-FROM "odyssée/Chants"
-FLATTEN places AS place
-WHERE file.path = this.file.path
-```
-
-## Carte
-
-```mapview
-{
-  "name": "Lieux du chant II",
-  "query": "linkedfrom:\"Chant 02\"",
-  "autoFit": true,
-  "embeddedHeight": 400
-}
-```
+![[chantEvents.base]]

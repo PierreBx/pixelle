@@ -1,0 +1,19 @@
+# Personnages rattachés à la faction qui incorpore cette base.
+# Remplace la requête Dataview `FROM #odyssey/character WHERE contains(file.outlinks, this.file.link)`.
+#
+# `this` désigne la note qui incorpore la base : une seule base sert les deux factions.
+# Le rattachement passe par la propriété `faction` du personnage et non par les liens
+# sortants — un personnage qui cite une faction dans son texte sans la porter en
+# frontmatter n'apparaît donc plus comme membre.
+views:
+  - type: list
+    name: Membres
+    filters:
+      and:
+        - file.hasTag("odyssey/character")
+        - contains(list(faction), this)
+    order:
+      - file.name
+    sort:
+      - property: file.name
+        direction: ASC

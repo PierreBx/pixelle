@@ -17,38 +17,4 @@ Conduit par Athéna sous les traits de Mentor, Télémaque aborde Pylos au momen
 
 ## Événements
 
-```dataview
-LIST WITHOUT ID file.link
-FROM #odyssey/event
-WHERE contains(file.outlinks, this.file.link)
-SORT file.name
-```
-
-## Personnages
-
-```dataview
-LIST WITHOUT ID char
-FROM "odyssée/Chants"
-FLATTEN characters AS char
-WHERE file.path = this.file.path
-```
-
-## Lieux
-
-```dataview
-LIST WITHOUT ID place
-FROM "odyssée/Chants"
-FLATTEN places AS place
-WHERE file.path = this.file.path
-```
-
-## Carte
-
-```mapview
-{
-  "name": "Lieux du chant III",
-  "query": "linkedfrom:\"Chant 03\"",
-  "autoFit": true,
-  "embeddedHeight": 400
-}
-```
+![[chantEvents.base]]

@@ -14,12 +14,6 @@ Socle **Leaflet** : carte sur fond d'**image**, pour la géographie **mythique**
 > **Poser un marqueur = cliquer directement sur la carte** (obsidian-leaflet enregistre alors les bonnes coordonnées). Le système de coordonnées d'une carte-image est basé sur les **pixels/CRS**, pas sur des pourcentages : on ne les écrit donc **pas à la main**.
 > On ne posera les escales et on ne tracera la route qu'**au rythme de la lecture** (anti-spoiler)—l'essentiel du voyage est raconté aux **chants IX–XII**.
 
-```leaflet
-id: odyssee-itineraire
-image: [[ancient-greece.jpg]]
-height: 600px
-```
-
 ### Prochaines Étapes (itération 3)
 
 - Ajouter un marqueur par escale (réelle **et** mythique) en cliquant sur la carte, puis le lier à sa note de lieu.

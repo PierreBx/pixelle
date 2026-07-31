@@ -13,9 +13,4 @@ Camp de la cité de Troie et de ses alliés (Lyciens, Dardaniens, Thraces…) fa
 
 ## Membres
 
-```dataview
-LIST WITHOUT ID file.link
-FROM #odyssey/character
-WHERE contains(file.outlinks, this.file.link)
-SORT file.name
-```
+![[factionMembers.base]]

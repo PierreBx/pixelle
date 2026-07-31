@@ -1,0 +1,19 @@
+# Événements rattachés au chant qui incorpore cette base.
+# Remplace la requête Dataview `FROM #odyssey/event WHERE contains(file.outlinks, this.file.link)`.
+#
+# `this` désigne la note qui incorpore la base : une seule base sert les trois chants.
+# Le rattachement passe par la propriété `song` de l'événement et non par les liens
+# sortants — une simple mention d'un chant dans le corps du texte ne fait donc plus
+# entrer l'événement dans la liste.
+views:
+  - type: list
+    name: Événements
+    filters:
+      and:
+        - file.hasTag("odyssey/event")
+        - contains(list(song), this)
+    order:
+      - file.name
+    sort:
+      - property: file.name
+        direction: ASC

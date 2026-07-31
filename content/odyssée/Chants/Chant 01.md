@@ -17,38 +17,4 @@ Le poème s'ouvre par l'invocation à la Muse, puis un concile des dieux sur l'O
 
 ## Événements
 
-```dataview
-LIST WITHOUT ID file.link
-FROM #odyssey/event
-WHERE contains(file.outlinks, this.file.link)
-SORT file.name
-```
-
-## Personnages
-
-```dataview
-LIST WITHOUT ID char
-FROM "odyssée/Chants"
-FLATTEN characters AS char
-WHERE file.path = this.file.path
-```
-
-## Lieux
-
-```dataview
-LIST WITHOUT ID place
-FROM "odyssée/Chants"
-FLATTEN places AS place
-WHERE file.path = this.file.path
-```
-
-## Carte
-
-```mapview
-{
-  "name": "Lieux du chant I",
-  "query": "linkedfrom:\"Chant 01\"",
-  "autoFit": true,
-  "embeddedHeight": 400
-}
-```
+![[chantEvents.base]]
