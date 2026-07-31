@@ -1,0 +1,32 @@
+views:
+  - type: table
+    name: Table
+    filters:
+      and:
+        - file.folder == "blog"
+        - file.name != "_blog"
+    groupBy:
+      property: category
+      direction: ASC
+    order:
+      - date
+      - category
+      - tags
+      - file.name
+      - place
+    sort:
+      - property: date
+        direction: DESC
+    columnSize:
+      note.date: 122
+      note.category: 133
+  - type: cards
+    name: Cards
+    filters:
+      and:
+        - file.folder == "posts"
+    groupBy:
+      property: tags
+      direction: ASC
+    imageAspectRatio: 1
+    image: note.banner

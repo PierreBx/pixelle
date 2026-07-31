@@ -41,8 +41,15 @@ const IGNORED_DIRS = [
   ".claude",
 ]
 
-/** Extensions copied as attachments when referenced by a published note. */
+/**
+ * Extensions copied as attachments when referenced by a published note.
+ *
+ * `.base` (Obsidian Bases) is included so index notes render. A base is a
+ * query, not content: Quartz evaluates it against `content/`, which holds
+ * only published notes, so it cannot surface anything private.
+ */
 const ATTACHMENT_EXTS = new Set([
+  ".base",
   ".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif", ".svg", ".bmp", ".ico",
   ".pdf",
   ".mp3", ".wav", ".m4a", ".ogg", ".flac",
