@@ -1,0 +1,36 @@
+views:
+  - type: table
+    name: Tout
+    filters:
+      and:
+        - publish == true
+        - or:
+            - file.path.startsWith("posts/")
+            - file.path.startsWith("public/posts/")
+    order:
+      - file.name
+      - tags
+      - file.ctime
+      - description
+    sort:
+      - property: file.ctime
+        direction: DESC
+      - property: file.name
+        direction: ASC
+    columnSize:
+      file.name: 320
+  - type: list
+    name: Liste
+    filters:
+      and:
+        - file.folder.containsAny("blog", "posts", "odyssée")
+        - '!file.name.startsWith("_")'
+        - file.name != "index"
+    groupBy:
+      property: file.folder
+      direction: ASC
+    order:
+      - file.name
+    sort:
+      - property: file.name
+        direction: ASC

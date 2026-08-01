@@ -5,8 +5,14 @@ created: 2026-08-01
 modified: 2026-08-01
 ---
 
-Toutes les entrées publiées du site, groupées par dossier : les billets rédigés
-(`blog`), les liens mis de côté (`posts`), et la base de connaissances de l'Odyssée
-(`odyssée`).
+## Blog
 
-![[allEntries.base]]
+![[blogEntriesBase.base]]
+
+## Posts
+
+![[postsEntriesBase.base]]
+
+## Odyssée
+
+![[odysseeEntriesBase.base]]
