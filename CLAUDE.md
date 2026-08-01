@@ -23,6 +23,35 @@ VAULT="${VAULT_PATH:-/home/ipro0800/Documents/data/obsidian/petersVault}"
 Le coffre est un dépôt git distinct, aussi synchronisé par **Obsidian Sync** : commits
 simples uniquement, jamais de rebase ni de force push.
 
+### Racine de publication (`PUBLIC_ROOT`), défaut `public`
+
+Le coffre range ses notes sous deux racines :
+
+```
+petersVault/
+  public/    blog/ + odyssée/     <- seul sous-arbre publiable
+  private/   santé/, france travail/, royan/, projets/, references/, spectacles/
+  _assets/ _obsidian/ _inbound/ _items/   <- hors des deux racines
+```
+
+La synchronisation ne considère que `public/`. Aucune variable à penser : un
+`npm run sync` nu se comporte correctement. Pour parcourir tout le coffre (ancien
+schéma à plat), passer une valeur **vide** : `PUBLIC_ROOT= npm run sync`.
+
+- Une note hors de cette racine n'est plus publiée, drapeau ou non : le rangement
+  devient une barrière et non une convention. `publish: true` reste néanmoins requis
+  **à l'intérieur** de `public/` — les deux conditions se cumulent.
+- Les chemins de destination sont calculés **relativement à la racine** : `public/blog/X.md`
+  devient `content/blog/X.md`. Le nom du dossier n'apparaît jamais dans une URL, et les
+  adresses existantes ne bougent pas.
+- Les **pièces jointes** restent cherchées dans tout le coffre (elles vivent souvent hors
+  de la racine : `_assets/`, `_obsidian/_bases/`) et conservent leur chemin. Elles ne sont
+  de toute façon copiées que si une note publiée les référence.
+
+Deux garde-fous : une racine introuvable arrête le script, et une synchronisation qui
+publierait zéro note alors que `content/` n'est pas vide est refusée (`--force` pour
+passer outre). Sans eux, une racine mal orthographiée viderait `content/` en silence.
+
 ## Publication : opt-in explicite, deux barrières
 
 Une note n'est publiée que si son frontmatter porte `publish: true`. Le coffre contient

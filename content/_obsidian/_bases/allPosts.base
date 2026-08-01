@@ -1,9 +1,17 @@
+# Le filtre accepte `blog` comme `<racine>/blog`, afin de rester valable des
+# deux côtés : Quartz évalue les chemins relatifs à `content/` (où le préfixe
+# de la racine de publication est retiré), Obsidian les évalue relativement au
+# coffre — où le dossier peut être rangé sous `public/`. Un simple
+# `file.folder == "blog"` cesserait donc de correspondre dans Obsidian après
+# une réorganisation, sans erreur : la liste deviendrait vide.
 views:
   - type: table
     name: Table
     filters:
       and:
-        - file.folder == "blog"
+        - or:
+            - file.folder == "blog"
+            - file.folder.endsWith("/blog")
         - file.name != "_blog"
     groupBy:
       property: category
@@ -20,11 +28,16 @@ views:
     columnSize:
       note.date: 122
       note.category: 133
+  # Cette vue filtrait sur `posts`, dossier qui n'existe pas dans ce coffre :
+  # elle affichait « No data found » depuis toujours. Alignée sur la vue Table.
   - type: cards
     name: Cards
     filters:
       and:
-        - file.folder == "posts"
+        - or:
+            - file.folder == "blog"
+            - file.folder.endsWith("/blog")
+        - file.name != "_blog"
     groupBy:
       property: tags
       direction: ASC

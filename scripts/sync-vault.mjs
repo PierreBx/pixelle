@@ -28,8 +28,47 @@ const CONTENT_DIR = path.join(REPO_ROOT, "content")
 
 const VAULT_PATH = process.env.VAULT_PATH ?? "/home/ipro0800/Documents/data/obsidian/petersVault"
 
+/**
+ * Racine de publication à l'intérieur du coffre. Défaut : `public`.
+ *
+ * Le coffre range ses notes sous `public/` et `private/` ; ce défaut fait donc
+ * du rangement une vraie barrière, sans dépendre d'une variable d'environnement
+ * qu'on oublierait. Un `npm run sync` nu se comporte correctement.
+ *
+ * Pour repasser au parcours de tout le coffre (coffre à plat, ancien schéma),
+ * passer une valeur **vide** : `PUBLIC_ROOT= npm run sync`.
+ *
+ * Quand une racine est active, seules les notes de ce sous-arbre sont
+ * candidates — et deux conséquences voulues :
+ *
+ *   - une note portant `publish: true` hors de cette racine n'est plus publiée ;
+ *   - les chemins de destination sont calculés **relativement à la racine**,
+ *     donc son nom n'apparaît jamais dans une URL (`public/blog/X.md` ->
+ *     `content/blog/X.md`). Les URL existantes ne bougent pas.
+ *
+ * Les **pièces jointes** restent cherchées dans tout le coffre : elles ne sont
+ * copiées que si une note publiée les référence, et vivent souvent hors de la
+ * racine (`_assets/`, `_obsidian/_bases/`). Elles conservent leur chemin.
+ */
+const PUBLIC_ROOT = (process.env.PUBLIC_ROOT ?? "public").replace(/^\/+|\/+$/g, "") || null
+
 const DRY_RUN = process.argv.includes("--dry-run")
 const VERBOSE = process.argv.includes("--verbose")
+/** Autorise une synchronisation qui viderait `content/` (voir le garde-fou). */
+const FORCE = process.argv.includes("--force")
+
+/** Retire le préfixe de la racine de publication d'un chemin du coffre. */
+function stripPublicRoot(relPath) {
+  if (!PUBLIC_ROOT) return relPath
+  const prefix = `${PUBLIC_ROOT}/`
+  return relPath.startsWith(prefix) ? relPath.slice(prefix.length) : relPath
+}
+
+/** Une note est-elle candidate à la publication, vu la racine configurée ? */
+function isUnderPublicRoot(relPath) {
+  if (!PUBLIC_ROOT) return true
+  return relPath.startsWith(`${PUBLIC_ROOT}/`)
+}
 
 /** Vault directories never scanned, for privacy or noise. */
 const IGNORED_DIRS = [
@@ -208,14 +247,31 @@ async function main() {
     process.exit(1)
   }
 
+  // Une racine mal orthographiée ne doit pas se traduire par « zéro note
+  // publiée », ce qui viderait content/ sans rien signaler d'anormal.
+  if (PUBLIC_ROOT && !existsSync(path.join(VAULT_PATH, PUBLIC_ROOT))) {
+    console.error(c.red(`Publication root not found: ${PUBLIC_ROOT}/`))
+    console.error(`Looked in ${path.join(VAULT_PATH, PUBLIC_ROOT)}`)
+    console.error(`Unset PUBLIC_ROOT to scan the whole vault.`)
+    process.exit(1)
+  }
+
   console.log(c.bold(`\nSyncing published notes`))
   console.log(`  vault   ${c.dim(VAULT_PATH)}`)
   console.log(`  content ${c.dim(CONTENT_DIR)}`)
+  console.log(
+    `  scope   ${c.dim(PUBLIC_ROOT ? `${PUBLIC_ROOT}/ (+ \`publish: true\`)` : `whole vault (\`publish: true\` only)`)}`,
+  )
   if (DRY_RUN) console.log(c.yellow(`  dry run — nothing will be written\n`))
   else console.log()
 
   const allFiles = await listVaultFiles()
-  const markdownFiles = allFiles.filter((f) => f.toLowerCase().endsWith(".md"))
+  // `allFiles` reste complet : l'index des pièces jointes doit pouvoir
+  // résoudre une image ou une base rangée hors de la racine de publication.
+  // Seules les **notes** sont restreintes.
+  const markdownFiles = allFiles
+    .filter((f) => f.toLowerCase().endsWith(".md"))
+    .filter((f) => isUnderPublicRoot(f))
 
   // ---- 1. Decide what is published -------------------------------------
   const published = []
@@ -241,8 +297,10 @@ async function main() {
   const rejectedClaimants = claimants.slice(1)
 
   // Each note's destination, which is its vault path unless it is the homepage.
+  // Le préfixe de la racine de publication est retiré : il organise le coffre,
+  // il n'a pas à s'inviter dans les URL du site.
   for (const note of published) {
-    note.dest = note === homepageNote ? "index.md" : note.relPath
+    note.dest = note === homepageNote ? "index.md" : stripPublicRoot(note.relPath)
   }
 
   if (published.length === 0) {
@@ -306,6 +364,25 @@ async function main() {
   const stale = existing.filter(
     (f) => !desired.has(f) && !(f === generatedIndex && !vaultHasIndex),
   )
+
+  // Garde-fou : publier zéro note alors que content/ en contient déjà signifie
+  // presque toujours une erreur de configuration (racine de publication mal
+  // nommée, VAULT_PATH pointant ailleurs, drapeaux `publish` perdus lors d'un
+  // déplacement) — pas une intention. Sans ce test, la synchronisation vide
+  // content/ en silence et la CI déploie un site vide.
+  const existingNotes = existing.filter((f) => f.toLowerCase().endsWith(".md"))
+  if (published.length === 0 && existingNotes.length > 0 && !FORCE) {
+    console.error(
+      c.red(`\nRefus : 0 note à publier, alors que content/ en contient ${existingNotes.length}.`),
+    )
+    console.error(`  vault  ${VAULT_PATH}`)
+    console.error(`  scope  ${PUBLIC_ROOT ? `${PUBLIC_ROOT}/` : "whole vault"}`)
+    console.error(
+      c.dim(`\n  Vérifiez PUBLIC_ROOT et VAULT_PATH, ou que les notes portent bien`),
+    )
+    console.error(c.dim(`  \`publish: true\`. Pour vider content/ délibérément : --force.\n`))
+    process.exit(1)
+  }
 
   // ---- 4. Apply ---------------------------------------------------------
   let written = 0

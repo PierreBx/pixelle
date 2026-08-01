@@ -16,6 +16,8 @@ Le répertoire courant est le dépôt **pixelle** ; le contenu à écrire vit da
   VAULT="${VAULT_PATH:-/home/ipro0800/Documents/data/obsidian/petersVault}"
   ```
   (même convention que `scripts/sync-vault.mjs`). Tous les chemins de notes ci-dessous sont **relatifs au coffre** : écris-les préfixés par `$VAULT/`. Ne crée jamais de note de l'Odyssée dans `content/` — ce répertoire est **généré** par `npm run sync` et toute écriture directe y sera écrasée ou supprimée.
+- **Le coffre a deux racines** : `public/` (publiable) et `private/`. L'Odyssée vit sous `$VAULT/public/odyssée/`. Une note écrite hors de `public/` ne sera jamais publiée, drapeau `publish` ou non. Attention à l'homonymie : le `public/` du **dépôt pixelle** est la sortie de construction de Quartz, sans rapport.
+- **Attention aux homonymes** lors de la création d'une note : deux fichiers de même nom dans le coffre rendent les wikilinks courts ambigus, et Obsidian peut alors relier la mauvaise note. Avant de créer `X.md`, vérifie qu'aucun autre `X.md` n'existe déjà ailleurs (`find "$VAULT" -name "X.md"`).
 - **Lis `$VAULT/CLAUDE.md` en premier.** C'est la référence normative (« Conventions de notes », « Le type song », « Les Factions », « Politique anti-spoiler »). Il n'est **pas** chargé automatiquement dans ce projet — sans cette lecture, tu travailles à l'aveugle. Lis aussi ce fichier pour l'« État actuel » (chants déjà traités).
 - Toute commande git visant le coffre s'écrit `git -C "$VAULT" …`.
 
@@ -28,14 +30,14 @@ Procède **étape par étape**, dans l'ordre. N'invente jamais de fait : si tu n
 
 ## 2. Préparation — lire avant d'écrire
 1. Relis les fileClasses `$VAULT/_obsidian/_metadata/odyssey-*.md`.
-2. Liste l'existant : `$VAULT/odyssée/Personnages`, `Lieux`, `Événements`, `Chants`, `Factions`.
+2. Liste l'existant : `$VAULT/public/odyssée/Personnages`, `Lieux`, `Événements`, `Chants`, `Factions`.
 3. Dresse la liste des entités du chant $ARGUMENTS (personnages, lieux, événements majeurs) d'après le texte.
 
 Le template `$VAULT/_obsidian/_templates/odyssey song.md` est à jour : il reproduit la structure de §5 (`## Résumé`, puis `## Événements` alimenté par `![[chantEvents.base]]`). Il ne porte pas `publish: true` — c'est à toi de l'ajouter, comme le rappelle §4.
 
 `odyssey faction.md` l'est aussi (`## Membres` alimenté par `![[factionMembers.base]]`), ainsi que les templates `character`, `place` et `event` de l'Odyssée, qui n'ont jamais contenu de bloc.
 
-⚠️ En revanche, les templates **hors Odyssée** `book.md` et `event.md` contiennent encore des expressions Dataview *inline* (` `= …` `), que Quartz ne rend pas : elles s'affichent en code littéral. Sans objet pour ce skill, mais à ne pas recopier.
+Plus aucun template du coffre ne contient de construction que Quartz ne rend pas (Dataview fencé ou inline, mapview, leaflet) : partir de l'un d'eux est sûr.
 
 ## 3. Mettre à jour l'existant (plutôt que recréer)
 - Pour chaque entité déjà présente qui réapparaît : ajoute « Chant $ARGUMENTS » à sa section `## Apparitions (chants)`, et remplis les champs YAML devenus connus **dans ce chant** (respect anti-spoiler). Cela inclut `faction` pour un vétéran de la guerre de Troie qui apparaît enfin (ex. Nestor, Ménélas → `"[[Achéens]]"`).
@@ -50,7 +52,7 @@ Toute note de l'Odyssée porte **`publish: true`** en frontmatter (les 53 notes 
 - **Anti-spoiler** : ne renseigne un fait que s'il est raconté ou rappelé dans un chant déjà lu (≤ $ARGUMENTS).
 
 ## 5. Note de synthèse du chant (type song)
-Crée `$VAULT/odyssée/Chants/Chant NN.md` avec **exactement** cette structure :
+Crée `$VAULT/public/odyssée/Chants/Chant NN.md` avec **exactement** cette structure :
 
 ```markdown
 ---
@@ -85,7 +87,7 @@ modified: <AAAA-MM-JJ>
 
 ## 7. Commit du coffre
 ```bash
-git -C "$VAULT" add odyssée/
+git -C "$VAULT" add public/odyssée/
 git -C "$VAULT" commit -m "Chant $ARGUMENTS : personnages, lieux, événements"
 ```
 Commit simple uniquement — pas de rebase/force (le coffre est aussi synchronisé par Obsidian Sync).

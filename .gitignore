@@ -1,5 +1,10 @@
 node_modules/
-public/
+# Ancré à la racine : `public/` seul désignerait aussi bien la sortie de build
+# que n'importe quel dossier `public` en profondeur — dont `content/public/`,
+# si le coffre venait à ranger ses notes publiables sous ce nom. Les notes
+# synchronisées seraient alors ignorées par git, sans erreur : commit vide,
+# CI verte, site figé sur l'ancienne version.
+/public/
 .quartz-cache/
 .quartz/
 quartz/cli/tui/dist/
@@ -17,6 +22,10 @@ Thumbs.db
 .obsidian/
 
 # Quartz treats `private/` as ignored content; keep it out of git too.
+# Volontairement NON ancré, à l'inverse de /public/ : on veut que le motif
+# attrape aussi `content/private/`, pour qu'une note privée arrivée là par
+# accident ne puisse pas être commitée. Troisième barrière, après le drapeau
+# `publish` et le plugin explicit-publish.
 private/
 
 # Local Claude Code state (machine-specific permission allowlist).
