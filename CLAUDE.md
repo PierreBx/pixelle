@@ -25,14 +25,19 @@ simples uniquement, jamais de rebase ni de force push.
 
 ### Racine de publication (`PUBLIC_ROOT`), défaut `public`
 
-Le coffre range ses notes sous deux racines :
+Le coffre range ses notes sous trois racines :
 
 ```
 petersVault/
-  public/    blog/ + odyssée/     <- seul sous-arbre publiable
+  public/    blog/ (billets écrits à la main) + posts/ (liens triés depuis
+             staging/) + odyssée/ + _items/     <- seul sous-arbre publiable
   private/   santé/, france travail/, royan/, projets/, references/, spectacles/
-  _assets/ _obsidian/ _inbound/ _items/   <- hors des deux racines
+  staging/   captures iOS et Web Clipper, en attente de tri
 ```
+
+Chaque racine porte ses propres pièces jointes dans `_assets/` : `images/`, `bases/`,
+et pour `public/` aussi `templates/` et `metadata/`. Plus rien d'autre à la racine du
+coffre.
 
 La synchronisation ne considère que `public/`. Aucune variable à penser : un
 `npm run sync` nu se comporte correctement. Pour parcourir tout le coffre (ancien
@@ -55,7 +60,7 @@ passer outre). Sans eux, une racine mal orthographiée viderait `content/` en si
 ## Publication : opt-in explicite, deux barrières
 
 Une note n'est publiée que si son frontmatter porte `publish: true`. Le coffre contient
-`santé/`, `france travail/`, `_inbound/` — rien ne doit en sortir par accident.
+`santé/`, `france travail/`, `royan/` — rien ne doit en sortir par accident.
 
 | Barrière | Où | Rôle |
 | --- | --- | --- |
@@ -102,8 +107,8 @@ Ils restent utilisables dans le coffre **sur des notes non publiées**.
 
 ## Bases (remplaçant de Dataview)
 
-Les `.base` vivent dans le coffre (`_obsidian/_bases/`) et sont copiés comme pièces
-jointes quand une note publiée les incorpore (`![[nom.base]]`).
+Les `.base` vivent dans le coffre (`public/_assets/bases/`, `private/_assets/bases/`) et
+sont copiés comme pièces jointes quand une note publiée les incorpore (`![[nom.base]]`).
 
 Points non évidents du moteur (`@quartz-community/bases-page`) :
 
@@ -119,20 +124,21 @@ Points non évidents du moteur (`@quartz-community/bases-page`) :
 - Les chaînes d'interface de ce plugin ne sont qu'en anglais (« No data found. »), même
   avec `locale: fr-FR`.
 
-Bases existantes : `allPosts.base` (billets), `chantEvents.base` (événements d'un chant),
+Bases existantes : `allPosts.base` (billets de `blog/` — ne couvre **pas** `posts/`), `chantEvents.base` (événements d'un chant),
 `factionMembers.base` (membres d'une faction).
 
 ## Confidentialité : `note-properties` affiche tout
 
 `note-properties` tourne avec `includeAll: true` : **toute** clé de frontmatter d'une
 note publiée devient visible, sauf celles listées dans `excludedProperties`
-(`publish`, `homepage`, `created`, `modified`).
+(`publish`, `homepage`, `created`, `modified`, `summary`).
 
 Conséquence : ajouter une clé au frontmatter d'une note publiée l'expose **sans décision
 explicite**. Vérifier avant de publier (`/verifier-publication`).
 
 ## Skills
 
+- `/trier [note]` — fait passer une capture de `staging/` aux billets publiables.
 - `/ajouter-chant N` — traite un chant de l'Odyssée dans le coffre, puis propage ici.
 - `/verifier-publication` — contrôles avant publication.
 - `/publier` — sync, construction, commit, push.

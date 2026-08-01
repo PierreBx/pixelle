@@ -16,7 +16,14 @@ configuration:
     - .obsidian
   theme:
     fontOrigin: googleFonts
-    cdnCaching: true
+    # false : les polices sont téléchargées **à la construction** et servies
+    # depuis ce site (`/static/fonts/`). Avec `true`, chaque page appelait
+    # fonts.googleapis.com et fonts.gstatic.com dans le navigateur du visiteur —
+    # une requête tierce à chaque visite, sur toutes les pages, alors même que
+    # `analytics: null` proclame le contraire.
+    # Contrepartie : la CI contacte Google pendant la construction. Aucune
+    # donnée de visiteur n'est en jeu, mais le build dépend de leur disponibilité.
+    cdnCaching: false
     typography:
       header: Schibsted Grotesk
       body: Source Sans Pro
@@ -109,6 +116,14 @@ plugins:
     order: 92
   - source: "@quartz-community/quartz-fonts"
     enabled: true
+    options:
+      # Ce plugin émet ses propres balises de police, indépendamment de
+      # `cdnCaching` du thème : sans cette option il rétablissait le
+      # `<link>` vers fonts.googleapis.com que la configuration du thème
+      # venait justement de supprimer.
+      # `selfHosted` : les polices sont téléchargées à la construction et
+      # servies depuis /static/fonts/.
+      fontOrigin: selfHosted
   - source: "@quartz-themes/core"
     enabled: false
     options:

@@ -1,0 +1,50 @@
+# Sommaire : toutes les entrées publiées, quel que soit le dossier.
+#
+# `containsAny` plutôt qu'une égalité de dossier, pour deux raisons :
+#   - Obsidian voit `public/blog`, Quartz voit `blog` (le préfixe de la racine
+#     de publication est retiré à la synchronisation) ;
+#   - `odyssée` a des sous-dossiers (Personnages, Lieux, Chants…) qu'il faut
+#     inclure sans les énumérer.
+#
+# Exclusions : les notes en `_` sont les pages d'index des dossiers (`_blog`,
+# `_posts`) et feraient doublon. L'accueil est exclu de fait — page d'accueil,
+# son dossier est la racine, qui ne contient aucun des trois noms.
+views:
+  - type: table
+    name: Tout
+    filters:
+      and:
+        - file.folder.containsAny("blog", "posts", "odyssée")
+        - '!file.name.startsWith("_")'
+        # Quartz génère une page par dossier (`blog/index`) : l'exclure,
+        # sinon la liste se recense elle-même.
+        - file.name != "index"
+    groupBy:
+      property: file.folder
+      direction: ASC
+    order:
+      - file.name
+      - tags
+      - file.mtime
+    sort:
+      - property: file.mtime
+        direction: DESC
+    columnSize:
+      file.name: 320
+  - type: list
+    name: Liste
+    filters:
+      and:
+        - file.folder.containsAny("blog", "posts", "odyssée")
+        - '!file.name.startsWith("_")'
+        # Quartz génère une page par dossier (`blog/index`) : l'exclure,
+        # sinon la liste se recense elle-même.
+        - file.name != "index"
+    groupBy:
+      property: file.folder
+      direction: ASC
+    order:
+      - file.name
+    sort:
+      - property: file.name
+        direction: ASC

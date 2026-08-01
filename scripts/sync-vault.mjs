@@ -175,21 +175,33 @@ function escapeHtml(s) {
  * vignette. Renvoie le markdown transformé et les vignettes à télécharger.
  */
 /** Les deux formes reconnues : lien/embed markdown, puis URL nue. */
-const YT_MD_LINK = /!?\[([^\]]*)\]\((https?:\/\/[^)\s]*(?:youtube\.com|youtu\.be)[^)\s]*)\)/g
+const MD_LINK = /!?\[([^\]]*)\]\((https?:\/\/[^)\s]*(?:youtube\.com|youtu\.be|instagram\.com)[^)\s]*)\)/g
 
-/** Identifiants de vidéo cités par une note, sans rien transformer. */
-function scanYouTube(raw) {
+/**
+ * Médias cités par une note, sans rien transformer. Clés `yt:<id>` /
+ * `ig:<code>` : un même jeu sert au pré-chargement des vignettes et au test
+ * de disponibilité pendant la transformation.
+ */
+function scanMedia(raw) {
   const { body } = splitFrontmatter(raw)
-  const ids = []
-  for (const [, , url] of body.matchAll(YT_MD_LINK)) {
-    const id = youTubeVideoId(url)
-    if (id) ids.push(id)
+  const keys = []
+  const add = (url) => {
+    const yt = youTubeVideoId(url)
+    if (yt) return keys.push(`yt:${yt}`)
+    const ig = instagramShortcode(url)
+    if (ig) keys.push(`ig:${ig}`)
   }
-  for (const url of body.match(YOUTUBE_URL) ?? []) {
-    const id = youTubeVideoId(url)
-    if (id) ids.push(id)
-  }
-  return ids
+  for (const [, , url] of body.matchAll(MD_LINK)) add(url)
+  for (const url of body.match(YOUTUBE_URL) ?? []) add(url)
+  for (const url of body.match(INSTAGRAM_URL) ?? []) add(url)
+  return keys
+}
+
+/** Chemin de la vignette d'un média, dans `content/`. */
+function thumbSlugFor(key) {
+  const [kind, id] = [key.slice(0, 2), key.slice(3)]
+  const dir = kind === "yt" ? THUMB_DIR : IG_THUMB_DIR
+  return `${dir}/${id.toLowerCase()}.jpg`
 }
 
 /**
@@ -207,23 +219,87 @@ function embedYouTube(raw, dest, available) {
 
   // `[titre](url)`, `![](url)`, puis URL nue — du plus spécifique au plus
   // général, pour ne pas re-capturer une URL déjà remplacée.
+  // Rend la vignette d'une URL, ou null si le média n'est pas encapsulable.
+  const facade = (url, label) => {
+    const yt = youTubeVideoId(url)
+    const key = yt ? `yt:${yt}` : (instagramShortcode(url) ? `ig:${instagramShortcode(url)}` : null)
+    if (!key || !available.has(key)) return null
+    const slug = thumbSlugFor(key)
+    thumbs.set(slug, key)
+    return yt
+      ? youTubeFacade(yt, label, slug, prefix)
+      : instagramFacade(key.slice(3), label, slug, prefix)
+  }
+
   const out = body
-    .replace(YT_MD_LINK, (all, label, url) => {
-      const id = youTubeVideoId(url)
-      if (!id || !available.has(id)) return all
-      const slug = `${THUMB_DIR}/${id.toLowerCase()}.jpg`
-      thumbs.set(slug, id)
-      return youTubeFacade(id, label, slug, prefix)
-    })
-    .replace(YOUTUBE_URL, (url) => {
-      const id = youTubeVideoId(url)
-      if (!id || !available.has(id)) return url
-      const slug = `${THUMB_DIR}/${id.toLowerCase()}.jpg`
-      thumbs.set(slug, id)
-      return youTubeFacade(id, "", slug, prefix)
-    })
+    .replace(MD_LINK, (all, label, url) => facade(url, label) ?? all)
+    .replace(YOUTUBE_URL, (url) => facade(url, "") ?? url)
+    .replace(INSTAGRAM_URL, (url) => facade(url, "") ?? url)
 
   return { text: frontmatter === null ? out : `---\n${frontmatter}\n---\n${out}`, thumbs }
+}
+
+// --- Instagram ---------------------------------------------------------------
+// Même principe que YouTube, avec deux réserves assumées :
+//
+//   - la vignette n'est pas exposée par une API : on la lit dans la page
+//     `/embed`, via la classe interne `EmbeddedMediaImage`. C'est du scraping,
+//     Meta peut le casser sans préavis. En ce cas la vignette manque, et le
+//     lien reste un lien : rien ne se casse visiblement.
+//   - l'image est celle d'un tiers, réhébergée ici sans l'habillage
+//     d'attribution d'Instagram. Choix explicite de l'auteur du site.
+const INSTAGRAM_URL = /https?:\/\/(?:www\.)?instagram\.com\/(?:reel|reels|p|tv)\/[A-Za-z0-9_-]+[^\s)<>\]"']*/g
+const IG_THUMB_DIR = "_assets/images/instagram"
+
+/** Code court d'un post/reel. null pour un lien de profil ou de compte. */
+function instagramShortcode(rawUrl) {
+  const url = rawUrl.replace(/[^\x00-\x7F]+$/u, "")
+  const m = url.match(/instagram\.com\/(?:reel|reels|p|tv)\/([A-Za-z0-9_-]{5,})/)
+  return m ? m[1] : null
+}
+
+/** Vignette cliquable pour un post Instagram. Style : `.ig-embed`. */
+function instagramFacade(code, label, thumbSlug, prefix) {
+  const title = escapeHtml(label || "Publication Instagram")
+  const play =
+    "const f=document.createElement('iframe');" +
+    "f.src='https://www.instagram.com/p/'+this.dataset.ig+'/embed';" +
+    "f.title=this.dataset.title||'Publication Instagram';" +
+    "f.className='ig-player';f.setAttribute('scrolling','no');" +
+    "f.allow='encrypted-media; picture-in-picture';" +
+    "f.allowFullscreen=true;this.replaceWith(f)"
+  return `<div class="ig-embed" role="button" tabindex="0" aria-label="Ouvrir la publication Instagram : ${title}" data-ig="${code}" data-title="${title}" onclick="${play}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
+  <img src="${prefix}${thumbSlug}" alt="" loading="lazy" />
+  <span class="ig-play" aria-hidden="true">▶</span>
+</div>`
+}
+
+/**
+ * Récupère la vignette d'un post : lit `/embed`, en extrait l'image, la
+ * télécharge. Renvoie false si le post est supprimé, privé, ou si la page ne
+ * livre plus d'image — auquel cas on n'encapsule pas.
+ */
+async function fetchInstagramThumb(code, dest) {
+  const UA = "Mozilla/5.0 (compatible; pixelle-sync/1.0)"
+  try {
+    const page = await fetch(`https://www.instagram.com/p/${code}/embed`, {
+      headers: { "user-agent": UA },
+    })
+    if (!page.ok) return false
+    const html = await page.text()
+    const m = html.match(/class="EmbeddedMediaImage"[^>]*\ssrc="([^"]+)"/)
+    if (!m) return false
+    const src = m[1].replace(/&amp;/g, "&")
+    const img = await fetch(src, { headers: { "user-agent": UA } })
+    if (!img.ok) return false
+    const buf = Buffer.from(await img.arrayBuffer())
+    if (buf.length < 2000) return false
+    await mkdir(path.dirname(dest), { recursive: true })
+    await writeFile(dest, buf)
+    return true
+  } catch {
+    return false
+  }
 }
 
 /** Télécharge la vignette d'une vidéo. Silencieux en cas d'échec réseau. */
@@ -467,26 +543,30 @@ async function main() {
   // Encapsulation des vidéos : le contenu écrit dans `content/` diverge ici du
   // coffre. En deux temps, car on n'encapsule que ce dont on a la vignette :
   // il faut donc savoir avant de transformer.
-  const ytWanted = new Set()
-  if (YOUTUBE_EMBED) for (const note of published) for (const id of scanYouTube(note.raw)) ytWanted.add(id)
+  const mediaWanted = new Set()
+  if (YOUTUBE_EMBED) for (const note of published) for (const k of scanMedia(note.raw)) mediaWanted.add(k)
 
-  const ytAvailable = new Set()
-  const ytDead = []
-  for (const id of ytWanted) {
-    const dest = path.join(CONTENT_DIR, `${THUMB_DIR}/${id.toLowerCase()}.jpg`)
+  const mediaAvailable = new Set()
+  const mediaDead = []
+  for (const key of mediaWanted) {
+    const dest = path.join(CONTENT_DIR, thumbSlugFor(key))
     // Déjà téléchargée : on ne redemande pas le réseau à chaque synchronisation.
-    if (existsSync(dest)) { ytAvailable.add(id); continue }
+    if (existsSync(dest)) { mediaAvailable.add(key); continue }
     // En simulation on ne télécharge rien ; l'aperçu se limite donc au cache.
     if (DRY_RUN) continue
-    if (await fetchThumbnail(id, dest)) ytAvailable.add(id)
-    else ytDead.push(id)
+    const id = key.slice(3)
+    const ok = key.startsWith("yt:")
+      ? await fetchThumbnail(id, dest)
+      : await fetchInstagramThumb(id, dest)
+    if (ok) mediaAvailable.add(key)
+    else mediaDead.push(key)
   }
 
-  const thumbnails = new Map() // slug dans content/ -> id de vidéo
+  const thumbnails = new Map() // slug dans content/ -> clé du média
   for (const note of published) {
-    const { text, thumbs } = embedYouTube(note.raw, note.dest, ytAvailable)
+    const { text, thumbs } = embedYouTube(note.raw, note.dest, mediaAvailable)
     note.output = text
-    for (const [slug, id] of thumbs) thumbnails.set(slug, id)
+    for (const [slug, key] of thumbs) thumbnails.set(slug, key)
   }
 
   if (published.length === 0) {
@@ -642,13 +722,18 @@ async function main() {
       c.dim(`  ${written} note(s) written, ${unchanged} unchanged, ${attachmentsWritten} attachment(s) copied`),
     )
   }
-  if (ytWanted.size) {
-    console.log(c.dim(`  ${thumbnails.size}/${ytWanted.size} vidéo(s) YouTube encapsulée(s)`))
-    if (ytDead.length) {
+  if (mediaWanted.size) {
+    console.log(c.dim(`  ${thumbnails.size}/${mediaWanted.size} média(s) encapsulé(s)`))
+    if (mediaDead.length) {
       console.log(
-        c.yellow(`  ${ytDead.length} vidéo(s) sans vignette — supprimées ou privées, lien laissé tel quel :`),
+        c.yellow(`  ${mediaDead.length} média(s) sans vignette — supprimés, privés ou inaccessibles ; lien laissé tel quel :`),
       )
-      for (const id of ytDead) console.log(c.dim(`    https://youtu.be/${id}`))
+      for (const key of mediaDead) {
+        const id = key.slice(3)
+        console.log(
+          c.dim(`    ${key.startsWith("yt:") ? `https://youtu.be/${id}` : `https://www.instagram.com/p/${id}/`}`),
+        )
+      }
     }
   }
   if (stale.length) console.log(c.dim(`  ${stale.length} file(s) removed`))

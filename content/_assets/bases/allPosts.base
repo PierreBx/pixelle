@@ -13,6 +13,9 @@ views:
             - file.folder == "blog"
             - file.folder.endsWith("/blog")
         - file.name != "_blog"
+        # Quartz génère une page par dossier (`blog/index`) : l'exclure,
+        # sinon la liste se recense elle-même.
+        - file.name != "index"
     groupBy:
       property: category
       direction: ASC
@@ -38,6 +41,9 @@ views:
             - file.folder == "blog"
             - file.folder.endsWith("/blog")
         - file.name != "_blog"
+        # Quartz génère une page par dossier (`blog/index`) : l'exclure,
+        # sinon la liste se recense elle-même.
+        - file.name != "index"
     groupBy:
       property: tags
       direction: ASC
