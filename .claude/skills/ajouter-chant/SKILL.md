@@ -31,7 +31,11 @@ Procède **étape par étape**, dans l'ordre. N'invente jamais de fait : si tu n
 2. Liste l'existant : `$VAULT/odyssée/Personnages`, `Lieux`, `Événements`, `Chants`, `Factions`.
 3. Dresse la liste des entités du chant $ARGUMENTS (personnages, lieux, événements majeurs) d'après le texte.
 
-⚠️ Le template `$VAULT/_obsidian/_templates/odyssey song.md` est **obsolète** : il contient encore des blocs Dataview et un bloc `mapview` qui ne sont pas rendus par Quartz et ont été retirés des notes existantes. Ne le recopie pas tel quel — utilise la structure donnée en §5. (Le frontmatter du template reste une référence valable.)
+Le template `$VAULT/_obsidian/_templates/odyssey song.md` est à jour : il reproduit la structure de §5 (`## Résumé`, puis `## Événements` alimenté par `![[chantEvents.base]]`). Il ne porte pas `publish: true` — c'est à toi de l'ajouter, comme le rappelle §4.
+
+`odyssey faction.md` l'est aussi (`## Membres` alimenté par `![[factionMembers.base]]`), ainsi que les templates `character`, `place` et `event` de l'Odyssée, qui n'ont jamais contenu de bloc.
+
+⚠️ En revanche, les templates **hors Odyssée** `book.md` et `event.md` contiennent encore des expressions Dataview *inline* (` `= …` `), que Quartz ne rend pas : elles s'affichent en code littéral. Sans objet pour ce skill, mais à ne pas recopier.
 
 ## 3. Mettre à jour l'existant (plutôt que recréer)
 - Pour chaque entité déjà présente qui réapparaît : ajoute « Chant $ARGUMENTS » à sa section `## Apparitions (chants)`, et remplis les champs YAML devenus connus **dans ce chant** (respect anti-spoiler). Cela inclut `faction` pour un vétéran de la guerre de Troie qui apparaît enfin (ex. Nestor, Ménélas → `"[[Achéens]]"`).

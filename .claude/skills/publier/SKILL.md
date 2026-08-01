@@ -62,15 +62,28 @@ sont peuplées (`public/odyssée/chants/chant-NN.html`).
 
 ## 4. Commiter
 
-Seul `content/` porte le contenu ; `public/` est ignoré par git.
+`content/` porte le contenu, mais **ce n'est pas suffisant** : la CI construit à partir
+de la configuration **commitée**. Tout fichier dont dépend la construction doit partir
+avec le contenu, sinon le site déployé ne correspond pas à ce que tu viens de vérifier
+en local — `quartz.config.yaml` d'abord, mais aussi `scripts/sync-vault.mjs`,
+`package.json` / `package-lock.json`, `.github/workflows/`.
+
+> Cas vécu : masquer une propriété du tableau touche **à la fois** une note et
+> `excludedProperties`. Commiter la note seule aurait laissé le résumé complet en clair
+> sur le site, alors que la vérification locale était verte.
+
+`public/` est ignoré par git, `.claude/settings.local.json` aussi.
 
 ```bash
-git add -A content
+git add -A content quartz.config.yaml
 git status --short
 ```
 
-Relis la liste avant de commiter : c'est le dernier moment où une note privée partie par
-erreur peut être arrêtée.
+Puis relis ce que `git status` montre encore : s'il reste un fichier qui influence la
+construction, il part aussi. Ce qui reste non commité doit être un choix explicite, pas
+un oubli.
+
+C'est aussi le dernier moment où une note privée partie par erreur peut être arrêtée.
 
 Message : `$ARGUMENTS` s'il est fourni, sinon un résumé factuel de ce qui change —
 `Publie : <titre>`, `Chant NN : …`, `Retire : <titre>`. Pas de message générique.
