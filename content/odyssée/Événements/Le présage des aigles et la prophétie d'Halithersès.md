@@ -1,9 +1,13 @@
 ---
 publish: true
 type: event
-tags: [odyssey/event]
+tags:
+  - odyssey/event
 location: "[[Ithaque]]"
-participants: ["[[Halithersès]]", "[[Eurymaque]]", "[[Zeus]]"]
+participants:
+  - "[[Halithersès]]"
+  - "[[Eurymaque]]"
+  - "[[Zeus]]"
 song: "[[Chant 02]]"
 created: 2026-07-11
 modified: 2026-07-11

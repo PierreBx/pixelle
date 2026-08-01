@@ -2,17 +2,22 @@
 publish: true
 type: character
 nature: god
-tags: [odyssey/character]
+tags:
+  - odyssey/character
 father: "[[Zeus]]"
 mother:
 spouse:
 consort:
 children:
 killed_by:
-patron_of: ["[[Ulysse]]", "[[Télémaque]]"]
+patron_of:
+  - "[[Ulysse]]"
+  - "[[Télémaque]]"
 home: "[[Olympe]]"
 faction: "[[Achéens]]"
-aliases: ["Mentès", "Mentor"]
+aliases:
+  - Mentès
+  - Mentor
 created: 2026-07-11
 modified: 2026-07-11
 ---

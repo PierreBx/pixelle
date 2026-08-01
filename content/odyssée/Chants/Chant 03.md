@@ -2,11 +2,31 @@
 publish: true
 type: song
 number: 3
-tags: [odyssey/song]
-characters: ["[[Télémaque]]", "[[Athéna]]", "[[Nestor]]", "[[Pisistrate]]", "[[Antiloque]]", "[[Ulysse]]", "[[Pénélope]]", "[[Ménélas]]", "[[Agamemnon]]", "[[Égisthe]]", "[[Oreste]]", "[[Clytemnestre]]", "[[Poséidon]]", "[[Zeus]]"]
-places: ["[[Pylos]]", "[[Phères]]", "[[Sparte]]", "[[Troie]]", "[[Ithaque]]"]
+tags:
+  - odyssey/song
+characters:
+  - "[[Télémaque]]"
+  - "[[Athéna]]"
+  - "[[Nestor]]"
+  - "[[Pisistrate]]"
+  - "[[Antiloque]]"
+  - "[[Ulysse]]"
+  - "[[Pénélope]]"
+  - "[[Ménélas]]"
+  - "[[Agamemnon]]"
+  - "[[Égisthe]]"
+  - "[[Oreste]]"
+  - "[[Clytemnestre]]"
+  - "[[Poséidon]]"
+  - "[[Zeus]]"
+places:
+  - "[[Pylos]]"
+  - "[[Phères]]"
+  - "[[Sparte]]"
+  - "[[Troie]]"
+  - "[[Ithaque]]"
 previous: "[[Chant 02]]"
-next: 
+next:
 created: 2026-07-12
 modified: 2026-07-12
 ---

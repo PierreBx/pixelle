@@ -2,9 +2,28 @@
 publish: true
 type: song
 number: 2
-tags: [odyssey/song]
-characters: ["[[Télémaque]]", "[[Pénélope]]", "[[Ulysse]]", "[[Athéna]]", "[[Zeus]]", "[[Antinoos]]", "[[Eurymaque]]", "[[Euryclée]]", "[[Laërte]]", "[[Égyptios]]", "[[Halithersès]]", "[[Mentor]]", "[[Léocrite]]", "[[Noémon]]", "[[Icarios]]"]
-places: ["[[Ithaque]]", "[[Pylos]]", "[[Sparte]]"]
+tags:
+  - odyssey/song
+characters:
+  - "[[Télémaque]]"
+  - "[[Pénélope]]"
+  - "[[Ulysse]]"
+  - "[[Athéna]]"
+  - "[[Zeus]]"
+  - "[[Antinoos]]"
+  - "[[Eurymaque]]"
+  - "[[Euryclée]]"
+  - "[[Laërte]]"
+  - "[[Égyptios]]"
+  - "[[Halithersès]]"
+  - "[[Mentor]]"
+  - "[[Léocrite]]"
+  - "[[Noémon]]"
+  - "[[Icarios]]"
+places:
+  - "[[Ithaque]]"
+  - "[[Pylos]]"
+  - "[[Sparte]]"
 previous: "[[Chant 01]]"
 next: "[[Chant 03]]"
 created: 2026-07-11

@@ -1,9 +1,12 @@
 ---
 publish: true
 type: event
-tags: [odyssey/event]
+tags:
+  - odyssey/event
 location: "[[Olympe]]"
-participants: ["[[Zeus]]", "[[Athéna]]"]
+participants:
+  - "[[Zeus]]"
+  - "[[Athéna]]"
 song: "[[Chant 01]]"
 created: 2026-07-11
 modified: 2026-07-11
