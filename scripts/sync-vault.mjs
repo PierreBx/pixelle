@@ -16,7 +16,7 @@
  *   VAULT_PATH=/some/other/vault node scripts/sync-vault.mjs
  */
 
-import { readFile, writeFile, mkdir, rm, copyFile, stat } from "node:fs/promises"
+import { readFile, writeFile, mkdir, rm, copyFile, stat, readdir } from "node:fs/promises"
 import { existsSync } from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
@@ -101,6 +101,147 @@ const c = {
   green: (s) => `\x1b[32m${s}\x1b[0m`,
   yellow: (s) => `\x1b[33m${s}\x1b[0m`,
   bold: (s) => `\x1b[1m${s}\x1b[0m`,
+}
+
+// ---------------------------------------------------------------------------
+// Encapsulation des vidéos YouTube  (prototype)
+// ---------------------------------------------------------------------------
+// Les notes du coffre gardent un simple lien markdown, lisible dans Obsidian.
+// C'est la synchronisation qui le remplace, dans `content/` uniquement, par une
+// vignette cliquable. Le coffre n'est jamais modifié.
+//
+// Pourquoi une vignette et non un `<iframe>` direct : un iframe YouTube contacte
+// Google au chargement de la page, dépose des cookies et trace le visiteur avant
+// tout clic — ce que `analytics: null` refuse explicitement dans
+// quartz.config.yaml. Ici la vignette est téléchargée à la synchronisation et
+// servie depuis le site ; l'iframe n'est construit qu'au clic, à partir de
+// l'identifiant porté par `data-yt`. Aucune requête tierce tant que le visiteur
+// n'a rien demandé. Le domaine utilisé est `youtube-nocookie.com`.
+const YOUTUBE_EMBED = process.env.YOUTUBE_EMBED !== "0"
+const THUMB_DIR = "_assets/images/youtube"
+
+/** Toute URL YouTube, qu'elle soit nue, en lien markdown ou en embed image. */
+const YOUTUBE_URL = /https?:\/\/(?:www\.|m\.)?(?:youtube\.com|youtu\.be)\/[^\s)<>\]"']+/g
+
+/**
+ * Extrait l'identifiant de vidéo (11 caractères) d'une URL YouTube.
+ * Absorbe les formes que le partage iOS produit : emoji collé en fin d'URL,
+ * sous-domaine `m.`, et `/shorts/` que le plugin Quartz ne reconnaît pas.
+ * Renvoie null pour ce qui n'est pas une vidéo (lien de chaîne, ID tronqué).
+ */
+function youTubeVideoId(rawUrl) {
+  const url = rawUrl.replace(/[^\x00-\x7F]+$/u, "").replace(/[.,;:]+$/, "")
+  const m =
+    url.match(/(?:youtu\.be\/|\/shorts\/|\/embed\/|[?&]v=)([A-Za-z0-9_-]{11})(?![A-Za-z0-9_-])/) ??
+    null
+  return m ? m[1] : null
+}
+
+/**
+ * Vignette cliquable. `prefix` remonte de la page vers la racine du site : le
+ * chemin doit rester relatif, sinon il ignorerait le `/pixelle` de l'URL de
+ * base et pointerait à la racine du domaine.
+ */
+function youTubeFacade(id, label, thumbSlug, prefix) {
+  const title = escapeHtml(label || "Vidéo YouTube")
+  // L'iframe est construit au clic à partir de `data-yt`, et non stocké dans un
+  // `<template>` : Quartz vide le contenu des templates au rendu, ce qui
+  // laissait une vignette qui, cliquée, ne révélait rien. Le gestionnaire
+  // n'utilise que des apostrophes, pour survivre à l'attribut entre guillemets.
+  // La mise en forme vit dans quartz/styles/custom.scss (`.yt-embed`).
+  const play =
+    "const f=document.createElement('iframe');" +
+    "f.src='https://www.youtube-nocookie.com/embed/'+this.dataset.yt+'?autoplay=1';" +
+    "f.title=this.dataset.title||'Vidéo YouTube';" +
+    "f.className='yt-player';" +
+    "f.allow='autoplay; encrypted-media; picture-in-picture; fullscreen';" +
+    "f.allowFullscreen=true;this.replaceWith(f)"
+  // `aria-label` plutôt qu'un texte masqué : Quartz ne définit pas de classe
+  // `sr-only`, un span « visuellement caché » s'afficherait donc en clair.
+  return `<div class="yt-embed" role="button" tabindex="0" aria-label="Lire la vidéo : ${title}" data-yt="${id}" data-title="${title}" onclick="${play}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
+  <img src="${prefix}${thumbSlug}" alt="" loading="lazy" />
+  <span class="yt-play" aria-hidden="true">▶</span>
+</div>`
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
+  )
+}
+
+/**
+ * Remplace, dans le corps d'une note, chaque lien vers une vidéo YouTube par sa
+ * vignette. Renvoie le markdown transformé et les vignettes à télécharger.
+ */
+/** Les deux formes reconnues : lien/embed markdown, puis URL nue. */
+const YT_MD_LINK = /!?\[([^\]]*)\]\((https?:\/\/[^)\s]*(?:youtube\.com|youtu\.be)[^)\s]*)\)/g
+
+/** Identifiants de vidéo cités par une note, sans rien transformer. */
+function scanYouTube(raw) {
+  const { body } = splitFrontmatter(raw)
+  const ids = []
+  for (const [, , url] of body.matchAll(YT_MD_LINK)) {
+    const id = youTubeVideoId(url)
+    if (id) ids.push(id)
+  }
+  for (const url of body.match(YOUTUBE_URL) ?? []) {
+    const id = youTubeVideoId(url)
+    if (id) ids.push(id)
+  }
+  return ids
+}
+
+/**
+ * @param available identifiants dont la vignette a pu être récupérée. Une vidéo
+ *   absente en est exclue : sa vignette renvoie 404, signe qu'elle a été
+ *   supprimée ou rendue privée. On laisse alors le lien d'origine plutôt que
+ *   d'afficher un cadre noir qui, cliqué, annoncerait « vidéo indisponible ».
+ */
+function embedYouTube(raw, dest, available) {
+  if (!YOUTUBE_EMBED) return { text: raw, thumbs: new Map() }
+  const thumbs = new Map()
+  const { frontmatter, body } = splitFrontmatter(raw)
+  // `blog/X.md` -> `../` ; `odyssée/Chants/Y.md` -> `../../` ; `index.md` -> ``
+  const prefix = "../".repeat(dest.split("/").length - 1)
+
+  // `[titre](url)`, `![](url)`, puis URL nue — du plus spécifique au plus
+  // général, pour ne pas re-capturer une URL déjà remplacée.
+  const out = body
+    .replace(YT_MD_LINK, (all, label, url) => {
+      const id = youTubeVideoId(url)
+      if (!id || !available.has(id)) return all
+      const slug = `${THUMB_DIR}/${id.toLowerCase()}.jpg`
+      thumbs.set(slug, id)
+      return youTubeFacade(id, label, slug, prefix)
+    })
+    .replace(YOUTUBE_URL, (url) => {
+      const id = youTubeVideoId(url)
+      if (!id || !available.has(id)) return url
+      const slug = `${THUMB_DIR}/${id.toLowerCase()}.jpg`
+      thumbs.set(slug, id)
+      return youTubeFacade(id, "", slug, prefix)
+    })
+
+  return { text: frontmatter === null ? out : `---\n${frontmatter}\n---\n${out}`, thumbs }
+}
+
+/** Télécharge la vignette d'une vidéo. Silencieux en cas d'échec réseau. */
+async function fetchThumbnail(id, dest) {
+  for (const name of ["maxresdefault", "hqdefault"]) {
+    try {
+      const res = await fetch(`https://i.ytimg.com/vi/${id}/${name}.jpg`)
+      if (!res.ok) continue
+      const buf = Buffer.from(await res.arrayBuffer())
+      if (buf.length < 2000) continue // placeholder gris de YouTube
+      await mkdir(path.dirname(dest), { recursive: true })
+      await writeFile(dest, buf)
+      return true
+    } catch {
+      /* réseau indisponible : on continue sans vignette */
+    }
+  }
+  return false
 }
 
 /** Split leading YAML frontmatter from a markdown document. */
@@ -230,6 +371,26 @@ function resolveAttachment(target, attachmentIndex) {
   return { relPath: candidates[0], ambiguous: candidates.length > 1, candidates }
 }
 
+/**
+ * Supprime récursivement les dossiers vides sous `root` (jamais `root` lui-même).
+ * Parcours en profondeur d'abord : un dossier ne contenant que des dossiers
+ * vides devient vide à son tour et disparaît dans la même passe.
+ */
+async function pruneEmptyDirs(root) {
+  const entries = await readdir(root, { withFileTypes: true })
+  let remaining = entries.length
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue
+    const child = path.join(root, entry.name)
+    if (await pruneEmptyDirs(child)) remaining--
+  }
+  if (remaining === 0 && root !== CONTENT_DIR) {
+    await rm(root, { recursive: true, force: true })
+    return true
+  }
+  return false
+}
+
 async function copyIfChanged(src, dest) {
   await mkdir(path.dirname(dest), { recursive: true })
   if (existsSync(dest)) {
@@ -303,6 +464,31 @@ async function main() {
     note.dest = note === homepageNote ? "index.md" : stripPublicRoot(note.relPath)
   }
 
+  // Encapsulation des vidéos : le contenu écrit dans `content/` diverge ici du
+  // coffre. En deux temps, car on n'encapsule que ce dont on a la vignette :
+  // il faut donc savoir avant de transformer.
+  const ytWanted = new Set()
+  if (YOUTUBE_EMBED) for (const note of published) for (const id of scanYouTube(note.raw)) ytWanted.add(id)
+
+  const ytAvailable = new Set()
+  const ytDead = []
+  for (const id of ytWanted) {
+    const dest = path.join(CONTENT_DIR, `${THUMB_DIR}/${id.toLowerCase()}.jpg`)
+    // Déjà téléchargée : on ne redemande pas le réseau à chaque synchronisation.
+    if (existsSync(dest)) { ytAvailable.add(id); continue }
+    // En simulation on ne télécharge rien ; l'aperçu se limite donc au cache.
+    if (DRY_RUN) continue
+    if (await fetchThumbnail(id, dest)) ytAvailable.add(id)
+    else ytDead.push(id)
+  }
+
+  const thumbnails = new Map() // slug dans content/ -> id de vidéo
+  for (const note of published) {
+    const { text, thumbs } = embedYouTube(note.raw, note.dest, ytAvailable)
+    note.output = text
+    for (const [slug, id] of thumbs) thumbnails.set(slug, id)
+  }
+
   if (published.length === 0) {
     console.log(c.yellow(`No notes carry \`publish: true\` — nothing to sync.`))
     console.log(
@@ -347,9 +533,14 @@ async function main() {
   }
 
   // ---- 3. Work out the exact desired state of content/ ------------------
+  // Les pièces jointes subissent le même retrait de préfixe que les notes :
+  // `public/_assets/images/x.png` -> `content/_assets/images/x.png`. Sans cela,
+  // ranger les images sous la racine de publication réintroduirait `public/`
+  // dans l'URL des images, alors que les pages, elles, n'en portent pas.
   const desired = new Set([
     ...published.map((p) => p.dest),
-    ...attachmentsToCopy.keys(),
+    ...[...attachmentsToCopy.keys()].map(stripPublicRoot),
+    ...thumbnails.keys(),
   ])
 
   const existing = existsSync(CONTENT_DIR)
@@ -395,10 +586,10 @@ async function main() {
     if (!DRY_RUN) {
       await mkdir(path.dirname(dest), { recursive: true })
       const prev = existsSync(dest) ? await readFile(dest, "utf8") : null
-      if (prev === note.raw) {
+      if (prev === note.output) {
         unchanged++
       } else {
-        await writeFile(dest, note.raw, "utf8")
+        await writeFile(dest, note.output, "utf8")
         written++
         if (VERBOSE) console.log(c.green(`  + ${label}`))
       }
@@ -409,17 +600,19 @@ async function main() {
 
   let attachmentsWritten = 0
   for (const relPath of attachmentsToCopy.keys()) {
+    const dest = stripPublicRoot(relPath)
+    const label = dest === relPath ? relPath : `${relPath} -> ${dest}`
     if (DRY_RUN) {
-      if (VERBOSE) console.log(c.green(`  + ${relPath}`))
+      if (VERBOSE) console.log(c.green(`  + ${label}`))
       continue
     }
     const changed = await copyIfChanged(
       path.join(VAULT_PATH, relPath),
-      path.join(CONTENT_DIR, relPath),
+      path.join(CONTENT_DIR, dest),
     )
     if (changed) {
       attachmentsWritten++
-      if (VERBOSE) console.log(c.green(`  + ${relPath}`))
+      if (VERBOSE) console.log(c.green(`  + ${label}`))
     }
   }
 
@@ -427,6 +620,11 @@ async function main() {
     if (!DRY_RUN) await rm(path.join(CONTENT_DIR, relPath), { force: true })
     console.log(c.red(`  - ${relPath} ${c.dim("(unpublished)")}`))
   }
+
+  // Supprimer un fichier ne supprime pas son dossier : après un déplacement de
+  // notes dans le coffre, `content/` gardait des dossiers vides indéfiniment.
+  // Git les ignore, mais ils brouillent la lecture de l'arborescence.
+  if (!DRY_RUN) await pruneEmptyDirs(CONTENT_DIR)
 
   if (!vaultHasIndex) {
     const homepage = buildHomepage(published)
@@ -443,6 +641,15 @@ async function main() {
     console.log(
       c.dim(`  ${written} note(s) written, ${unchanged} unchanged, ${attachmentsWritten} attachment(s) copied`),
     )
+  }
+  if (ytWanted.size) {
+    console.log(c.dim(`  ${thumbnails.size}/${ytWanted.size} vidéo(s) YouTube encapsulée(s)`))
+    if (ytDead.length) {
+      console.log(
+        c.yellow(`  ${ytDead.length} vidéo(s) sans vignette — supprimées ou privées, lien laissé tel quel :`),
+      )
+      for (const id of ytDead) console.log(c.dim(`    https://youtu.be/${id}`))
+    }
   }
   if (stale.length) console.log(c.dim(`  ${stale.length} file(s) removed`))
   if (homepageNote) {
