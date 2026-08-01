@@ -1,7 +1,5 @@
 ---
 publish: true
-created: 2026-06-17
+created: 2026-04-20
 modified: 2026-08-01
 ---
-
-![[allPosts.base]]
