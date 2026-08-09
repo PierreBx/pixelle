@@ -138,10 +138,13 @@ explicite**. Vérifier avant de publier (`/verifier-publication`).
 
 ## Skills
 
-- `/trier [note]` — fait passer une capture de `staging/` aux billets publiables.
 - `/ajouter-chant N` — traite un chant de l'Odyssée dans le coffre, puis propage ici.
-- `/verifier-publication` — contrôles avant publication.
+- `/verifier-publication` — contrôles avant publication. Le script
+  `.claude/skills/verifier-publication/audit.py` s'utilise aussi seul (`--help`).
 - `/publier` — sync, construction, commit, push.
+
+Le tri des captures de `staging/` vers `public/posts/` se fait à la main, dans le coffre :
+il n'y a pas de skill pour ça.
 
 ## Divers
 
