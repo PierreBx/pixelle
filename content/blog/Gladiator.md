@@ -1,14 +1,12 @@
 ---
 publish: true
-tags:
-  - movie
+tags: [movie]
 director: "[[Ridley Scott]]"
 releaseYear: 2000
 date:
-category:
-  - art
+category: [art]
 created: 2026-05-18
-modified: 2026-05-18
+modified: 2026-08-09
 ---
 
 ![[2026-05-18-Gladiator.png]]

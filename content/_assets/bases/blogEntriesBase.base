@@ -8,17 +8,20 @@ views:
             - file.path.startsWith("blog/")
             - file.path.startsWith("public/blog/")
     order:
-      - file.name
-      - tags
       - file.ctime
+      - file.name
+      - category
+      - tags
       - description
     sort:
       - property: file.ctime
-        direction: DESC
+        direction: ASC
+      - property: category
+        direction: ASC
       - property: file.name
         direction: ASC
     columnSize:
-      file.name: 320
+      file.name: 235
   - type: list
     name: Liste
     filters:

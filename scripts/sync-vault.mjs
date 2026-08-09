@@ -87,6 +87,17 @@ const IGNORED_DIRS = [
  * query, not content: Quartz evaluates it against `content/`, which holds
  * only published notes, so it cannot surface anything private.
  */
+/**
+ * Clés de plomberie de publication : elles pilotent la synchronisation et
+ * n'ont aucun sens sur le site. `note-properties` les masque déjà via
+ * `excludedProperties` dans quartz.config.yaml ; les bases ont leur propre
+ * liste de colonnes, que ce filtre aligne sur la même politique.
+ *
+ * Le coffre reste libre : la colonne est utile dans Obsidian, où elle sert à
+ * repérer ce qui est publié. Seule la copie vers `content/` est nettoyée.
+ */
+const BASE_HIDDEN_COLUMNS = new Set(["publish", "note.publish", "homepage", "note.homepage"])
+
 const ATTACHMENT_EXTS = new Set([
   ".base",
   ".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif", ".svg", ".bmp", ".ico",
@@ -469,11 +480,42 @@ async function pruneEmptyDirs(root) {
 
 async function copyIfChanged(src, dest) {
   await mkdir(path.dirname(dest), { recursive: true })
+  if (path.extname(src).toLowerCase() === ".base") return writeBase(src, dest)
   if (existsSync(dest)) {
     const [a, b] = await Promise.all([stat(src), stat(dest)])
     if (a.size === b.size && a.mtimeMs <= b.mtimeMs) return false
   }
   await copyFile(src, dest)
+  return true
+}
+
+/**
+ * Copie une base en retirant les colonnes de plomberie de chaque vue.
+ *
+ * Comparaison sur le contenu produit, pas sur taille/date : le fichier écrit
+ * diffère de la source, donc le raccourci de `copyIfChanged` ne s'applique pas.
+ * Une base illisible est recopiée telle quelle — mieux vaut une colonne de trop
+ * qu'une base cassée.
+ */
+async function writeBase(src, dest) {
+  const raw = await readFile(src, "utf8")
+  let out = raw
+  try {
+    const doc = YAML.parse(raw)
+    let stripped = false
+    for (const view of doc?.views ?? []) {
+      if (!Array.isArray(view?.order)) continue
+      const kept = view.order.filter((col) => !BASE_HIDDEN_COLUMNS.has(col))
+      if (kept.length === view.order.length) continue
+      view.order = kept
+      stripped = true
+    }
+    if (stripped) out = YAML.stringify(doc)
+  } catch {
+    // base non analysable : on garde l'original
+  }
+  if (existsSync(dest) && (await readFile(dest, "utf8")) === out) return false
+  await writeFile(dest, out, "utf8")
   return true
 }
 

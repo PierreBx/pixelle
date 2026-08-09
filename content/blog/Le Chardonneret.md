@@ -2,8 +2,7 @@
 publish: true
 date:
 year: 2013
-author:
-  - "[[Donna Tartt]]"
+author: ["[[Donna Tartt]]"]
 summary: |-
   The Goldfinch is told in retrospective first-person narration by Theodore "Theo" Decker. Thirteen-year-old Theo's life is turned upside down when he and his mother visit the Metropolitan Museum of Art to see an exhibition of Dutch masterpieces, including a favorite painting of hers, Carel Fabritius's The Goldfinch. There, he becomes intrigued by a red-headed girl in the company of an elderly man. A bomb explodes in the museum, killing his mother and several other visitors.
   In the rubble, Theo once more encounters the old man, who gives him a ring and delivers an enigmatic message before dying. Believing that the man is indicating The Goldfinch, Theo takes it during his panicked escape. He moves in with a school friend, Andy Barbour, and his wealthy family in their Park Avenue apartment. He carries out the old man's last wishes and returns the ring to his business partner, James "Hobie" Hobart. Theo learns that the old man's name was Welton "Welty" Blackwell, and that he and Hobie ran an antiques shop together. He becomes friends with Hobie and encounters the red-haired girl, Pippa, who lived with Welty and Hobie after her mother (Welty's half-sister) died of cancer.
@@ -13,19 +12,17 @@ summary: |-
   Boris disappears, leaving Theo alone in his hotel in Amsterdam, where he spirals into paranoia and substance abuse. Unable to return to New York because Boris has his passport, he contemplates suicide. After several days, Boris returns and reveals that he has resolved the situation by phoning the art recovery police to inform on the dealers. Not only has the painting been saved for the museum, but Boris has received a huge reward, which he shares with Theo.
   After arriving in the United States, Theo travels the country, using the reward money to buy back the fake antiques from customers. He realizes that Pippa loves him, but she did not openly reciprocate his feelings because she believes they both share the same damage and flaws, having both survived the trauma of the museum explosion and resorted to self-medication to cope. In a lengthy reflection, Theo wonders how much of his experiences were unavoidable due to fate or his character, and contemplates The Goldfinch and "the history of people who have loved beautiful things, and looked out for them, and pulled them from the fire". The novel ends on a curious note, as Theo's contemplation demonstrates both a hard fate still ahead and a sort of redeeming immortality through the admiration of beauty.
 image: "[[le-chardonneret-cover.jpg]]"
-category:
-  - art
-tags:
-  - books
+category: [art]
+tags: [books]
 created: 2026-03-30
-modified: 2026-04-10
+modified: 2026-08-09
 ---
 
 ![[le-chardonneret-cover.jpg]]
 
 ## Résumé
 
-> [!warning]- Résumé complet — révèle le dénouement
+> [!warning]- Résumé complet—révèle le dénouement
 > The Goldfinch is told in retrospective first-person narration by Theodore "Theo" Decker. Thirteen-year-old Theo's life is turned upside down when he and his mother visit the Metropolitan Museum of Art to see an exhibition of Dutch masterpieces, including a favorite painting of hers, Carel Fabritius's The Goldfinch. There, he becomes intrigued by a red-headed girl in the company of an elderly man. A bomb explodes in the museum, killing his mother and several other visitors.
 >
 > In the rubble, Theo once more encounters the old man, who gives him a ring and delivers an enigmatic message before dying. Believing that the man is indicating The Goldfinch, Theo takes it during his panicked escape. He moves in with a school friend, Andy Barbour, and his wealthy family in their Park Avenue apartment. He carries out the old man's last wishes and returns the ring to his business partner, James "Hobie" Hobart. Theo learns that the old man's name was Welton "Welty" Blackwell, and that he and Hobie ran an antiques shop together. He becomes friends with Hobie and encounters the red-haired girl, Pippa, who lived with Welty and Hobie after her mother (Welty's half-sister) died of cancer.

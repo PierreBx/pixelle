@@ -3,7 +3,6 @@ views:
     name: Tout
     filters:
       and:
-        - publish == true
         - or:
             - file.path.startsWith("posts/")
             - file.path.startsWith("public/posts/")
@@ -19,6 +18,7 @@ views:
         direction: ASC
     columnSize:
       file.name: 320
+      note.description: 183
   - type: list
     name: Liste
     filters:
