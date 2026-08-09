@@ -22,6 +22,10 @@ import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { globby } from "globby"
 import YAML from "yaml"
+// La fonction de Quartz elle-même, pas une réécriture : les règles de slug sont
+// nombreuses (`&` -> `-and-`, `|` -> `-`, ponctuation typographique conservée)
+// et toute divergence produirait des liens morts sur la page d'accueil.
+import { slugifyFilePath } from "@quartz-community/utils"
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 const CONTENT_DIR = path.join(REPO_ROOT, "content")
@@ -856,10 +860,34 @@ async function main() {
 }
 
 /** A simple landing page listing published notes, grouped by vault folder. */
+/**
+ * Un lien de la page d'accueil vers une note publiée.
+ *
+ * Le wikilink est préféré : lisible, et résolu par Quartz. Mais son séparateur
+ * d'alias est `|`, caractère fréquent dans les titres de captures Instagram
+ * (« Fran Lebowitz | Fan Page »). Quartz coupe alors la cible à la première
+ * barre et le lien meurt ; l'échappement `\|` ne le sauve pas — vérifié.
+ * Pour ces noms-là on passe donc par un lien markdown vers le slug calculé.
+ */
+function homepageLink(dest, title) {
+  const target = dest.slice(0, -3)
+  if (!target.includes("|")) return `[[${target}|${title}]]`
+  const href = slugifyFilePath(dest).split("/").map(encodeURIComponent).join("/")
+  return `[${title.replaceAll("[", "\\[").replaceAll("]", "\\]")}](${href})`
+}
+
+/**
+ * Page d'accueil de repli, quand aucune note ne porte `homepage: true`.
+ *
+ * Tout se calcule sur `note.dest`, jamais sur `note.relPath` : la destination
+ * est le chemin réel dans `content/`, dont la racine de publication a été
+ * retirée. Bâtir les liens sur le chemin du coffre produisait des cibles
+ * `public/...` qui n'existent pas — toute l'accueil renvoyait en 404.
+ */
 function buildHomepage(published) {
   const byFolder = new Map()
   for (const note of published) {
-    const folder = path.dirname(note.relPath)
+    const folder = path.dirname(note.dest)
     const key = folder === "." ? "" : folder
     if (!byFolder.has(key)) byFolder.set(key, [])
     byFolder.get(key).push(note)
@@ -882,10 +910,10 @@ function buildHomepage(published) {
 
   for (const key of [...byFolder.keys()].sort()) {
     if (key !== "") lines.push(`## ${key}`, "")
-    const notes = byFolder.get(key).sort((a, b) => a.relPath.localeCompare(b.relPath))
+    const notes = byFolder.get(key).sort((a, b) => a.dest.localeCompare(b.dest))
     for (const note of notes) {
-      const title = note.frontmatter?.title ?? path.basename(note.relPath, ".md")
-      lines.push(`- [[${note.relPath.slice(0, -3)}|${title}]]`)
+      const title = note.frontmatter?.title ?? path.basename(note.dest, ".md")
+      lines.push(`- ${homepageLink(note.dest, title)}`)
     }
     lines.push("")
   }
