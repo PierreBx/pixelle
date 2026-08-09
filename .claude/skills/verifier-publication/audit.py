@@ -231,6 +231,14 @@ def read(f):
     return open(f, encoding="utf8").read()
 
 
+def show_head(path):
+    """Contenu du fichier tel qu'il est committé, ou None s'il n'existe pas dans HEAD."""
+    r = subprocess.run(
+        ["git", "show", f"HEAD:{path}"], capture_output=True, text=True, errors="replace"
+    )
+    return r.stdout if r.returncode == 0 else None
+
+
 def plural(n, word, plural_form=None):
     return f"{n} {word if n <= 1 else (plural_form or word + 's')}"
 
@@ -271,17 +279,28 @@ def audit_content(rep, scope_all):
         audit_bases(rep)
         return
 
-    # Référence : où chaque clé de frontmatter apparaît déjà, hors delta. Sert à
-    # distinguer une clé nouvelle sur le site d'une clé installée.
+    # Référence : ce qui est **déjà publié**, c'est-à-dire l'état de HEAD.
+    #
+    # Les fichiers non modifiés valent leur version de HEAD, on les lit du disque.
+    # Pour les fichiers du delta il faut la version committée : sans elle, une clé
+    # que seules ces notes portaient paraîtrait inédite alors qu'elle est en ligne
+    # depuis longtemps. Une note jamais committée n'a pas de version HEAD et ne
+    # contribue donc rien — une vraie nouveauté reste bien signalée.
     baseline = {}
     changed_set = set(changed)
-    for f in every:
-        if f in changed_set:
-            continue
-        fm, _ = frontmatter(read(f))
-        folder = os.path.relpath(f, "content").split(os.sep)[0]
+
+    def absorb(path_in_content, fm):
+        folder = path_in_content.split(os.sep)[0]
         for k in fm or {}:
             baseline.setdefault(k, collections.Counter())[folder] += 1
+
+    for f in every:
+        if f not in changed_set:
+            absorb(os.path.relpath(f, "content"), frontmatter(read(f))[0])
+    for f in changed:
+        committed = show_head(f)
+        if committed is not None:
+            absorb(os.path.relpath(f, "content"), frontmatter(committed)[0])
 
     n = len(changed)
     stubs = links = dates = 0
