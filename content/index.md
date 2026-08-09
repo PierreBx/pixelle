@@ -5,21 +5,6 @@ publish: true
 
 - [[Sommaire|Sommaire]]
 
-## _assets/items/people
-
-- [[_assets/items/people/Donna Tartt|Donna Tartt]]
-- [[_assets/items/people/Harry Lighton|Harry Lighton]]
-- [[_assets/items/people/Mohamed El Khatib|Mohamed El Khatib]]
-- [[_assets/items/people/Woody Allen|Woody Allen]]
-
-## _assets/items/places
-
-- [[_assets/items/places/Arkéa Arena|Arkéa Arena]]
-- [[_assets/items/places/Auditorium|Auditorium]]
-- [[_assets/items/places/Carré St-Médard|Carré St-Médard]]
-- [[_assets/items/places/Grand-Théatre|Grand-Théatre]]
-- [[_assets/items/places/Grotte de Rouffignac|Grotte de Rouffignac]]
-
 ## blog
 
 - [[blog/Annie Hall|Annie Hall]]
