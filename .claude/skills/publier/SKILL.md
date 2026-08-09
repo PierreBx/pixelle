@@ -46,13 +46,15 @@ Lis le rapport :
 
 ## 3. Vérifier
 
-Lance le skill `verifier-publication` (ou, en version courte, ses contrôles 2 et 5) :
+Lance le skill `verifier-publication`, ou directement ses deux commandes :
 
 ```bash
-grep -rn '```\(dataview\|mapview\|leaflet\|zoommap\)' content --include="*.md" \
-  || echo "OK — aucun bloc non rendu"
-npm run build:ci
+python3 .claude/skills/verifier-publication/audit.py
+npm run build:ci && python3 .claude/skills/verifier-publication/audit.py --built
 ```
+
+L'audit ne regarde que les notes modifiées depuis HEAD. Il sort en 1 dès qu'un constat
+`CASSE` ou `EXPOSE` apparaît — ce sont ceux qui doivent bloquer le push.
 
 La construction doit se terminer sans erreur. **Ne pousse pas** si un bloc non rendu
 subsiste ou si la construction échoue — le site publierait la casse.
