@@ -15,7 +15,7 @@ views:
       - description
     sort:
       - property: file.ctime
-        direction: ASC
+        direction: DESC
       - property: category
         direction: ASC
       - property: file.name

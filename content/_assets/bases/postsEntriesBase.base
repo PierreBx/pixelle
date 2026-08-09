@@ -13,7 +13,7 @@ views:
       - description
     sort:
       - property: file.ctime
-        direction: DESC
+        direction: ASC
       - property: file.name
         direction: ASC
     columnSize:
