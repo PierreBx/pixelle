@@ -3,7 +3,7 @@ publish: true
 tags:
   - visited
 description:
-location: "[[Grottes de Rouffignac]]"
+place: "[[Grotte de Rouffignac]]"
 category:
   - place
 created: 2026-08-09
