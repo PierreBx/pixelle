@@ -134,14 +134,32 @@ note publiée devient visible, sauf celles listées dans `excludedProperties`
 (`publish`, `homepage`, `created`, `modified`, `summary`).
 
 Conséquence : ajouter une clé au frontmatter d'une note publiée l'expose **sans décision
-explicite**. Vérifier avant de publier (`/verifier-publication`).
+explicite**. Vérifier avant de publier (`/3-site-check-local`).
 
-## Skills
+## Workflow et skills
 
-- `/ajouter-chant N` — traite un chant de l'Odyssée dans le coffre, puis propage ici.
-- `/verifier-publication` — contrôles avant publication. Le script
-  `.claude/skills/verifier-publication/audit.py` s'utilise aussi seul (`--help`).
-- `/publier` — sync, construction, commit, push.
+Le coffre se modifie à la main ; les quatre étapes suivantes sont outillées. Les skills sont nommés en anglais et leur contenu est en
+anglais ; le reste du dépôt (ce fichier, `README.md`, les notes) reste en français.
+
+| # | Étape | Skill |
+| --- | --- | --- |
+| — | Mise à jour manuelle du coffre | l'utilisateur, dans Obsidian |
+| 1 | Ajout d'un chant de l'Odyssée (facultatif) | `/1-vault-add-chant N` |
+| 2 | Construction locale + URL de test | `/2-site-construct-locally` |
+| 3 | Vérification du site construit | `/3-site-check-local` |
+| 4 | Commit et publication | `/4-site-commit-and-publish` |
+
+Deux de ces skills s'appuient sur un script utilisable seul, sans passer par Claude :
+
+```bash
+.claude/skills/3-site-check-local/audit.py --help
+.claude/skills/4-site-commit-and-publish/commit-and-publish.sh --help
+```
+
+`commit-and-publish.sh` ne pousse qu'avec `--push`, et vérifie ensuite le déploiement en comparant les
+pages servies au build local — la sortie de Quartz est déterministe, donc l'égalité prouve
+que le nouveau contenu est bien en ligne. Ne pas se fier à l'API GitHub Actions : elle a
+rapporté des états périmés, et son quota anonyme (60 requêtes/heure) s'épuise vite.
 
 Le tri des captures de `staging/` vers `public/posts/` se fait à la main, dans le coffre :
 il n'y a pas de skill pour ça.

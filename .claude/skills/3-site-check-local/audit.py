@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Contrôles avant publication du site pixelle.
+"""Pre-publication checks for the pixelle site.
 
-Se lance de n'importe où : le script retrouve la racine du dépôt tout seul.
+Runs from anywhere: the script locates the repository root by itself.
 
-  .claude/skills/verifier-publication/audit.py --help
+  .claude/skills/3-site-check-local/audit.py --help
 """
 
 import argparse
@@ -15,10 +15,11 @@ import re
 import shutil
 import subprocess
 import sys
+import urllib.parse
 
 
 def die(message):
-    """Erreur d'exécution : code 2, comme argparse — distinct du 1 des constats."""
+    """Runtime failure: exit 2, like argparse — distinct from the 1 of findings."""
     print(message, file=sys.stderr)
     raise SystemExit(2)
 
@@ -26,59 +27,59 @@ def die(message):
 try:
     import yaml
 except ImportError:
-    die("Il manque PyYAML :  pip install pyyaml   (ou apt install python3-yaml)")
+    die("PyYAML is missing:  pip install pyyaml   (or apt install python3-yaml)")
 
 DESCRIPTION = """\
-Contrôles avant publication du site pixelle.
+Pre-publication checks for the pixelle site.
 
-Par défaut, n'examine que les notes modifiées depuis HEAD : c'est là que sont
-les erreurs fraîches. Un audit du corpus entier noie le signal sous des constats
-préexistants et assumés — le réserver à une revue périodique.
+By default only notes changed since HEAD are examined: that is where fresh
+mistakes are. Auditing the whole corpus drowns the signal under pre-existing,
+deliberate findings — keep that for a periodic review.
 """
 
 EPILOG = """\
-verdicts :
-  ok       contrôle passé — ce qui a été examiné est indiqué à droite
-  info     observation neutre, ne pèse pas sur le résultat
-  doute    probable erreur de saisie — à confirmer avant de corriger
-  expose   une donnée devient publique sans décision explicite
-  casse    le site publie quelque chose de faux ou de mort
+verdicts:
+  ok       check passed — what was examined is stated on the right
+  info     neutral observation, does not affect the outcome
+  doubt    likely a typing mistake — confirm before correcting
+  expose   data becomes public without an explicit decision
+  broken   the site publishes something wrong or dead
 
-code de sortie :
-  0  rien à signaler, ou seulement des doute/info
-  1  au moins un casse ou un expose
-  2  erreur d'exécution (mauvais dossier, dépendance manquante)
+exit status:
+  0  nothing to report, or only doubt/info
+  1  at least one broken or expose
+  2  runtime failure (wrong directory, missing dependency)
 
-exemples :
-  audit.py                  avant de commiter
-  audit.py --built          après `npm run build:ci`, ajoute les contrôles sur public/
-  audit.py --all            inventaire complet du corpus, pour une revue périodique
-  audit.py --quiet          ne montrer que ce qui cloche
+examples:
+  audit.py                  before committing
+  audit.py --built          after `npm run build:ci`, adds the checks on public/
+  audit.py --all            full corpus inventory, for a periodic review
+  audit.py --quiet          show only what is wrong
 
-Rien n'est corrigé ni modifié. content/ étant généré, toute correction se fait
-dans le coffre Obsidian.
+Nothing is fixed or modified. content/ is generated, so every correction
+belongs in the Obsidian vault.
 """
 
 UNRENDERED = ("dataview", "mapview", "leaflet", "zoommap")
 
-# Fiches volontairement réduites à leur frontmatter : elles existent pour être
-# la cible d'un lien, pas pour être lues. Ne pas les signaler comme vides.
+# Notes deliberately reduced to their frontmatter: they exist to be the target
+# of a link, not to be read. Do not report them as empty.
 STUB_DIRS = ("_assets/items/",)
 
 DATE_KEYS = ("date", "created", "modified", "publishDate")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Restitution
+# Rendering
 # ─────────────────────────────────────────────────────────────────────────────
 
-RANK = {"ok": 0, "info": 0, "doute": 1, "expose": 2, "casse": 3}
+RANK = {"ok": 0, "info": 0, "doubt": 1, "expose": 2, "broken": 3}
 MARK = {
     "ok": ("✓", "\033[32m"),
     "info": ("·", "\033[2m"),
-    "doute": ("?", "\033[36m"),
+    "doubt": ("?", "\033[36m"),
     "expose": ("▲", "\033[33m"),
-    "casse": ("✗", "\033[31m"),
+    "broken": ("✗", "\033[31m"),
 }
 
 
@@ -95,13 +96,13 @@ def width():
 
 
 class Check:
-    """Un contrôle : ce qu'il examine, ce qu'il a trouvé."""
+    """One check: what it examines, what it found."""
 
     def __init__(self, section, label):
         self.section = section
         self.label = label
-        self.verdict = ""  # résumé de droite, affiché quel que soit le résultat
-        self.entries = []  # (niveau, détail)
+        self.verdict = ""  # right-hand summary, shown whatever the outcome
+        self.entries = []  # (level, detail)
 
     def add(self, level, detail):
         self.entries.append((level, detail))
@@ -125,7 +126,7 @@ class Report:
     def render(self, quiet):
         cols = width()
         out = []
-        out.append(paint("  audit pixelle", "\033[1m"))
+        out.append(paint("  pixelle audit", "\033[1m"))
         for key, value in self.header:
             out.append(f"  {paint(key.ljust(9), '\033[2m')}{value}")
         out.append("")
@@ -158,25 +159,24 @@ class Report:
         return "\n".join(out)
 
     def counts(self):
-        c = collections.Counter(chk.level for chk in self.checks)
-        return c
+        return collections.Counter(chk.level for chk in self.checks)
 
     def footer(self):
         c = self.counts()
-        bits = [f"{len(self.checks)} contrôles", paint(f"{c['ok'] + c['info']} conformes", "\033[32m")]
+        bits = [f"{len(self.checks)} checks", paint(f"{c['ok'] + c['info']} clean", "\033[32m")]
         for lv, one, many in (
-            ("doute", "doute", "doutes"),
-            ("expose", "exposition", "expositions"),
-            ("casse", "anomalie", "anomalies"),
+            ("doubt", "doubt", "doubts"),
+            ("expose", "exposure", "exposures"),
+            ("broken", "breakage", "breakages"),
         ):
             if c[lv]:
                 bits.append(paint(f"{c[lv]} {one if c[lv] == 1 else many}", MARK[lv][1]))
         verdict = " · ".join(bits)
-        if c["casse"] or c["expose"]:
-            return verdict + "\n  → corriger dans le coffre, puis relancer la synchronisation"
-        if c["doute"]:
-            return verdict + "\n  → rien ne bloque ; confirmer les doutes avant de publier"
-        return verdict + "\n  → publiable"
+        if c["broken"] or c["expose"]:
+            return verdict + "\n  → fix in the vault, then run the sync again"
+        if c["doubt"]:
+            return verdict + "\n  → nothing blocking; confirm the doubts before publishing"
+        return verdict + "\n  → ready to publish"
 
 
 def wrap(text, limit):
@@ -192,12 +192,12 @@ def wrap(text, limit):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Lecture
+# Reading
 # ─────────────────────────────────────────────────────────────────────────────
 
 
 def frontmatter(text):
-    """Renvoie (dict, corps). Un frontmatter illisible donne (None, corps)."""
+    """Return (dict, body). Unreadable frontmatter yields (None, body)."""
     m = re.match(r"^---\n(.*?)\n---\n?(.*)\Z", text, re.S)
     if not m:
         return {}, text
@@ -216,7 +216,7 @@ def excluded_properties():
 
 
 def changed_paths():
-    """Chemins de content/ modifiés ou ajoutés depuis HEAD."""
+    """Paths under content/ added or modified since HEAD."""
     out = subprocess.run(
         ["git", "status", "--porcelain", "--untracked-files=all", "-z", "--", "content"],
         capture_output=True,
@@ -232,7 +232,7 @@ def read(f):
 
 
 def show_head(path):
-    """Contenu du fichier tel qu'il est committé, ou None s'il n'existe pas dans HEAD."""
+    """File contents as committed, or None when absent from HEAD."""
     r = subprocess.run(
         ["git", "show", f"HEAD:{path}"], capture_output=True, text=True, errors="replace"
     )
@@ -244,7 +244,7 @@ def plural(n, word, plural_form=None):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Contrôles sur content/
+# Checks on content/
 # ─────────────────────────────────────────────────────────────────────────────
 
 
@@ -253,39 +253,39 @@ def audit_content(rep, scope_all):
     every = sorted(glob.glob("content/**/*.md", recursive=True))
 
     if not every:
-        rep.check("contenu", "présence de notes").add("casse", "content/ est vide")
+        rep.check("content", "notes present").add("broken", "content/ is empty")
         return
 
     changed = every if scope_all else sorted(changed_paths() & set(every))
     scope = (
-        "corpus entier"
+        "whole corpus"
         if scope_all
-        else f"{plural(len(changed), 'note modifiée', 'notes modifiées')} depuis HEAD"
+        else f"{plural(len(changed), 'note changed', 'notes changed')} since HEAD"
     )
-    rep.header.append(("portée", f"{scope}  ({len(every)} notes publiées au total)"))
+    rep.header.append(("scope", f"{scope}  ({len(every)} notes published in total)"))
 
-    S = "contenu"
-    c_parse = rep.check(S, "frontmatter lisible")
-    c_flag = rep.check(S, "drapeau publish: true")
-    c_body = rep.check(S, "corps de note")
-    c_block = rep.check(S, "blocs rendus par Quartz")
-    c_self = rep.check(S, "liens de frontmatter")
-    c_date = rep.check(S, "dates exploitables")
-    c_keys = rep.check(S, "clés exposées au public")
+    S = "content"
+    c_parse = rep.check(S, "frontmatter parses")
+    c_flag = rep.check(S, "publish: true flag")
+    c_body = rep.check(S, "note body")
+    c_block = rep.check(S, "blocks Quartz renders")
+    c_self = rep.check(S, "frontmatter links")
+    c_date = rep.check(S, "usable dates")
+    c_keys = rep.check(S, "publicly exposed keys")
 
     if not changed:
         for c in (c_parse, c_flag, c_body, c_block, c_self, c_date, c_keys):
-            c.verdict = "sans objet"
+            c.verdict = "not applicable"
         audit_bases(rep)
         return
 
-    # Référence : ce qui est **déjà publié**, c'est-à-dire l'état de HEAD.
+    # Baseline: what is **already published**, that is, the state of HEAD.
     #
-    # Les fichiers non modifiés valent leur version de HEAD, on les lit du disque.
-    # Pour les fichiers du delta il faut la version committée : sans elle, une clé
-    # que seules ces notes portaient paraîtrait inédite alors qu'elle est en ligne
-    # depuis longtemps. Une note jamais committée n'a pas de version HEAD et ne
-    # contribue donc rien — une vraie nouveauté reste bien signalée.
+    # Unchanged files equal their HEAD version, so they are read from disk. For
+    # files in the delta the committed version is required: without it, a key
+    # only those notes carried would look brand new although it has been online
+    # for months. A note never committed has no HEAD version and contributes
+    # nothing — a genuine novelty is still reported.
     baseline = {}
     changed_set = set(changed)
 
@@ -311,48 +311,48 @@ def audit_content(rep, scope_all):
         fm, body = frontmatter(read(f))
 
         if fm is None:
-            c_parse.add("casse", f"{rel} — YAML invalide, la note ne sera pas rendue")
+            c_parse.add("broken", f"{rel} — invalid YAML, the note will not render")
             continue
 
-        # Résidu : explicit-publish écarterait la page, le lien deviendrait mort.
+        # Leftover: explicit-publish would drop the page, leaving a dead link.
         if fm.get("publish") is not True:
-            c_flag.add("casse", f"{rel} — sans le drapeau, la page devient un lien mort")
+            c_flag.add("broken", f"{rel} — without the flag the page becomes a dead link")
 
-        # Une note sans corps publie une page dont le seul contenu visible est
-        # son tableau de propriétés. Presque toujours un brouillon oublié.
+        # A note without a body publishes a page whose only visible content is
+        # its properties table. Almost always a forgotten draft.
         if not body.strip():
             if rel.startswith(STUB_DIRS):
                 stubs += 1
             else:
-                c_body.add("doute", f"{rel} — publierait une page sans contenu")
+                c_body.add("doubt", f"{rel} — would publish a page with no content")
 
         for tag in UNRENDERED:
             if re.search(r"^```\s*" + tag + r"\b", body, re.M):
                 c_block.add(
-                    "casse", f"{rel} — bloc `{tag}` affiché en code brut sur le site"
+                    "broken", f"{rel} — `{tag}` block shown as raw code on the site"
                 )
 
         for k, v in fm.items():
             for target in re.findall(r"\[\[([^\]|#]+)", str(v)):
                 links += 1
                 if target.strip() == os.path.splitext(os.path.basename(rel))[0]:
-                    c_self.add("doute", f"{rel} — `{k}` pointe sur la note elle-même")
+                    c_self.add("doubt", f"{rel} — `{k}` points at the note itself")
 
             if k in DATE_KEYS:
                 dates += 1
-                # Quartz journalise « invalid date » et retombe sur la date git.
+                # Quartz logs "invalid date" and falls back to the git date.
                 if isinstance(v, str) and v.strip().lower() in ("null", "none", "nan"):
-                    c_date.add("casse", f"{rel} — `{k}: {v}` affichera une date fausse")
+                    c_date.add("broken", f"{rel} — `{k}: {v}` will display a wrong date")
 
             if k in excl or scope_all:
                 continue
             seen = baseline.get(k)
             if seen is None:
-                # includeAll : la clé devient une ligne visible du tableau.
-                c_keys.add("expose", f"{rel} — `{k}` n'existait nulle part ailleurs")
+                # includeAll: the key becomes a visible row of the table.
+                c_keys.add("expose", f"{rel} — `{k}` existed nowhere else")
             elif folder not in seen:
-                # Trier par fréquence dans ce dossier : la clé qu'emploient les
-                # notes voisines est presque toujours celle qu'il fallait.
+                # Sort by frequency within that folder: the key the neighbouring
+                # notes use is nearly always the one that was meant.
                 siblings = sorted(
                     (
                         (folders[folder], key)
@@ -363,33 +363,33 @@ def audit_content(rep, scope_all):
                 )
                 usual = ", ".join(f"{key}×{cnt}" for cnt, key in siblings[:5])
                 c_keys.add(
-                    "doute",
-                    f"{rel} — `{k}` vient de {'/, '.join(sorted(seen))}/ ; "
-                    f"{folder}/ emploie plutôt {usual or 'aucune autre clé'}",
+                    "doubt",
+                    f"{rel} — `{k}` comes from {'/, '.join(sorted(seen))}/ ; "
+                    f"{folder}/ rather uses {usual or 'no other key'}",
                 )
 
     def verdict(check, examined, clean, faulty):
-        """Ce qui a été examiné, puis ce qu'on y a trouvé — jamais l'inverse."""
+        """What was examined, then what was found there — never the reverse."""
         k = len(check.entries)
         check.verdict = f"{examined} — {clean}" if not k else f"{examined} — {faulty(k)}"
 
-    verdict(c_parse, plural(n, "note analysée", "notes analysées"),
-            "toutes lisibles", lambda k: f"{plural(k, 'illisible')}")
-    verdict(c_flag, f"{n} examinées",
-            "toutes marquées", lambda k: f"{k} sans le drapeau")
+    verdict(c_parse, plural(n, "note analysed", "notes analysed"),
+            "all readable", lambda k: plural(k, "unreadable"))
+    verdict(c_flag, f"{n} examined",
+            "all flagged", lambda k: f"{k} without the flag")
     tolerated = (
-        f", {plural(stubs, 'fiche tolérée', 'fiches tolérées')} sous {' '.join(STUB_DIRS)}"
+        f", {plural(stubs, 'stub tolerated', 'stubs tolerated')} under {' '.join(STUB_DIRS)}"
         if stubs
         else ""
     )
-    verdict(c_body, f"{n} examinées{tolerated}",
-            "toutes ont un contenu", lambda k: plural(k, "note vide", "notes vides"))
+    verdict(c_body, f"{n} examined{tolerated}",
+            "all have content", lambda k: plural(k, "empty note", "empty notes"))
     verdict(c_block, "/".join(UNRENDERED),
-            "aucun bloc de ce type", lambda k: f"{plural(k, 'bloc')} en code brut")
-    verdict(c_self, plural(links, "lien examiné", "liens examinés"),
-            "aucun renvoi sur soi", lambda k: f"{plural(k, 'renvoi')} sur soi-même")
-    verdict(c_date, plural(dates, "date examinée", "dates examinées"),
-            "toutes exploitables", lambda k: f"{plural(k, 'invalide')}")
+            "no block of this kind", lambda k: f"{plural(k, 'block')} as raw code")
+    verdict(c_self, plural(links, "link examined", "links examined"),
+            "no self-reference", lambda k: f"{plural(k, 'self-reference')}")
+    verdict(c_date, plural(dates, "date examined", "dates examined"),
+            "all usable", lambda k: plural(k, "invalid"))
 
     if scope_all:
         audit_keys_corpus(rep, c_keys, every, excl)
@@ -399,21 +399,21 @@ def audit_content(rep, scope_all):
         trouble = ", ".join(
             plural(found[lv], one, many)
             for lv, one, many in (
-                ("expose", "clé inédite", "clés inédites"),
-                ("doute", "hors convention", "hors convention"),
+                ("expose", "unseen key", "unseen keys"),
+                ("doubt", "off-convention", "off-convention"),
             )
             if found[lv]
         )
         c_keys.verdict = (
-            f"{len(visible)} clés déjà publiques (includeAll) — "
-            + (trouble or "aucune nouveauté")
+            f"{len(visible)} keys already public (includeAll) — "
+            + (trouble or "nothing new")
         )
 
     audit_bases(rep)
 
 
 def audit_keys_corpus(rep, check, every, excl):
-    """Sur le corpus entier, la nouveauté n'a plus de sens : on inventorie."""
+    """Over the whole corpus novelty is meaningless: take an inventory instead."""
     inventory = {}
     for f in every:
         fm, _ = frontmatter(read(f))
@@ -421,86 +421,137 @@ def audit_keys_corpus(rep, check, every, excl):
             if k not in excl:
                 inventory.setdefault(k, []).append(os.path.relpath(f, "content"))
     rare = sum(1 for holders in inventory.values() if len(holders) <= 2)
-    check.verdict = f"{len(inventory)} clés visibles — " + (
-        plural(rare, "clé rare", "clés rares") if rare else "aucune clé rare"
+    check.verdict = f"{len(inventory)} visible keys — " + (
+        plural(rare, "rare key", "rare keys") if rare else "no rare key"
     )
     check.add(
         "info",
-        "inventaire : "
-        + ", ".join(f"{k}×{len(v)}" for k, v in sorted(inventory.items())),
+        "inventory: " + ", ".join(f"{k}×{len(v)}" for k, v in sorted(inventory.items())),
     )
     for k, holders in sorted(inventory.items()):
         if len(holders) <= 2:
-            check.add("expose", f"`{k}` — clé rare, sur {', '.join(holders)}")
+            check.add("expose", f"`{k}` — rare key, on {', '.join(holders)}")
 
 
 def audit_bases(rep):
-    """Garde-fou sur la transformation des bases par sync-vault.mjs."""
-    check = rep.check("contenu", "colonnes des bases")
+    """Guard on the base transformation performed by sync-vault.mjs."""
+    check = rep.check("content", "base columns")
     files = sorted(glob.glob("content/**/*.base", recursive=True))
-    check.verdict = f"{plural(len(files), 'base copiée', 'bases copiées')} dans content/"
+    check.verdict = f"{plural(len(files), 'base copied', 'bases copied')} into content/"
     for f in files:
         rel = os.path.relpath(f, "content")
         try:
             doc = yaml.safe_load(read(f)) or {}
         except Exception:
-            check.add("doute", f"{rel} — YAML illisible, colonnes non vérifiables")
+            check.add("doubt", f"{rel} — unreadable YAML, columns not verifiable")
             continue
         for view in doc.get("views") or []:
             for col in view.get("order") or []:
                 if str(col).split(".")[-1] in ("publish", "homepage"):
                     check.add(
                         "expose",
-                        f"{rel} — la vue « {view.get('name')} » affiche `{col}` ; "
-                        f"sync-vault.mjs aurait dû la retirer (BASE_HIDDEN_COLUMNS)",
+                        f"{rel} — view \"{view.get('name')}\" shows `{col}`; "
+                        f"sync-vault.mjs should have stripped it (BASE_HIDDEN_COLUMNS)",
                     )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Contrôles sur public/
+# Checks on public/
 # ─────────────────────────────────────────────────────────────────────────────
+
+RELATIVE_HREF = re.compile(r'<a[^>]+href="((?:\./|\.\./)[^"#?]+)"')
+
+
+def resolves(page, href):
+    """Does a relative href from `page` land on something Quartz emitted?"""
+    target = os.path.normpath(
+        os.path.join(os.path.dirname(page), urllib.parse.unquote(href))
+    )
+    return (
+        os.path.exists(target + ".html")
+        or os.path.exists(target)
+        or os.path.exists(os.path.join(target, "index.html"))
+    )
 
 
 def audit_built(rep):
-    S = "sortie construite"
+    S = "built output"
     pages = sorted(glob.glob("public/**/*.html", recursive=True))
     if not pages:
-        rep.check(S, "présence de public/").add(
-            "casse", "aucune page — lancer `npm run build:ci` d'abord"
+        rep.check(S, "public/ present").add(
+            "broken", "no page — run `npm run build:ci` first"
         )
         return
 
-    c_raw = rep.check(S, "blocs non rendus")
-    c_base = rep.check(S, "bases peuplées")
+    c_raw = rep.check(S, "unrendered blocks")
+    c_base = rep.check(S, "bases populated")
+    c_link = rep.check(S, "internal links resolve")
 
     embeds, empty = 0, []
+    total_links = 0
+    dangling = []
+    home_dangling = []
+
     for f in pages:
         s = read(f)
         rel = os.path.relpath(f, "public")
+
         for tag in UNRENDERED:
             if f'data-language="{tag}"' in s:
-                c_raw.add("casse", f"{rel} — bloc `{tag}` dans le HTML publié")
+                c_raw.add("broken", f"{rel} — `{tag}` block in the published HTML")
+
+        for href in RELATIVE_HREF.findall(s):
+            total_links += 1
+            if not resolves(f, href):
+                dangling.append((rel, href))
+                if rel == "index.html":
+                    home_dangling.append(href)
+
         if "bases-inline" not in s:
             continue
         embeds += 1
-        # Se fier au décompte du plugin : la classe `bases-empty` marque aussi
-        # les cellules vides d'un tableau, par dizaines.
+        # Trust the plugin's own count: the `bases-empty` class also marks the
+        # empty *cells* of a table, by the dozen.
         for meta in re.findall(r'class="bases-view-meta"[^>]*>([^<]*)<', s):
             if re.match(r"^Showing 0 of 0\b", html.unescape(meta).strip()):
                 empty.append(rel)
 
-    c_raw.verdict = f"{plural(len(pages), 'page inspectée', 'pages inspectées')} — " + (
-        f"{plural(len(c_raw.entries), 'bloc brut')}" if c_raw.entries else "sortie propre"
+    c_raw.verdict = f"{plural(len(pages), 'page inspected', 'pages inspected')} — " + (
+        plural(len(c_raw.entries), "raw block") if c_raw.entries else "output clean"
     )
+
     c_base.verdict = (
-        f"{plural(embeds, 'page incorpore une base', 'pages incorporent une base')} — "
-        + (f"{plural(len(set(empty)), 'vue vide')}" if empty else "toutes peuplées")
+        f"{plural(embeds, 'page embeds a base', 'pages embed a base')} — "
+        + (plural(len(set(empty)), "empty view") if empty else "all populated")
     )
     for rel in sorted(set(empty)):
         c_base.add(
-            "doute",
-            f"{rel} — une vue est vide ; légitime si aucune note ne correspond, "
-            f"sinon frontmatter mal renseigné",
+            "doubt",
+            f"{rel} — a view is empty; legitimate when no note matches, "
+            f"otherwise a mistyped frontmatter field",
+        )
+
+    # A dangling link elsewhere is usually a published note citing a private or
+    # unwritten one — the sync reports those and they render as plain text. On
+    # the generated homepage nothing is expected to dangle: every entry there is
+    # built from a note that was just written, so one broken link means the
+    # generator itself is wrong. That is exactly how 173 dead links once shipped.
+    c_link.verdict = f"{total_links} relative links — " + (
+        f"{len(dangling)} without a target" if dangling else "all resolve"
+    )
+    if home_dangling:
+        c_link.add(
+            "broken",
+            f"index.html — {plural(len(home_dangling), 'entry points', 'entries point')} "
+            f"nowhere, e.g. {', '.join(home_dangling[:3])}",
+        )
+    others = [(p, h) for p, h in dangling if p != "index.html"]
+    if others:
+        shown = ", ".join(f"{h} ({p})" for p, h in others[:4])
+        c_link.add(
+            "doubt",
+            f"{plural(len(others), 'link')} to a note that is private or not yet "
+            f"written — expected, rendered as plain text: {shown}",
         )
 
 
@@ -508,10 +559,10 @@ def audit_built(rep):
 
 
 def find_root():
-    """Racine du dépôt : le dossier qui porte quartz.config.yaml et content/.
+    """Repository root: the directory holding quartz.config.yaml and content/.
 
-    Cherché d'abord au-dessus du script (cas normal, il vit dans .claude/), puis
-    au-dessus du dossier courant — ainsi une copie du script fonctionne aussi.
+    Searched above the script first (the normal case, it lives in .claude/),
+    then above the current directory — so a copy of the script also works.
     """
     for start in (os.path.dirname(os.path.abspath(__file__)), os.getcwd()):
         d = start
@@ -537,37 +588,37 @@ def main():
     parser.add_argument(
         "--all",
         action="store_true",
-        help="examiner tout le corpus au lieu des seules notes modifiées",
+        help="examine the whole corpus instead of only changed notes",
     )
     parser.add_argument(
         "--built",
         action="store_true",
-        help="ajouter les contrôles sur public/ (exige un `npm run build:ci` récent)",
+        help="add the checks on public/ (requires a recent `npm run build:ci`)",
     )
     parser.add_argument(
         "--quiet",
         action="store_true",
-        help="masquer les contrôles conformes, ne montrer que ce qui cloche",
+        help="hide passing checks, show only what is wrong",
     )
     args = parser.parse_args()
 
     root = find_root()
     if root is None:
         die(
-            "Racine du dépôt pixelle introuvable (ni quartz.config.yaml ni content/).\n"
-            "Lancer le script depuis le dépôt, ou le laisser dans .claude/skills/."
+            "pixelle repository root not found (neither quartz.config.yaml nor content/).\n"
+            "Run the script from inside the repository, or leave it in .claude/skills/."
         )
     os.chdir(root)
 
     rep = Report()
-    rep.header.append(("racine", root))
+    rep.header.append(("root", root))
     audit_content(rep, args.all)
     if args.built:
         audit_built(rep)
 
     print(rep.render(args.quiet))
     c = rep.counts()
-    return 1 if c["casse"] or c["expose"] else 0
+    return 1 if c["broken"] or c["expose"] else 0
 
 
 if __name__ == "__main__":

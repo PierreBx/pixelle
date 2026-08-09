@@ -69,15 +69,16 @@ npm run build       # sync + build
 npm run build:ci    # build seul, sans sync — ce que lance la CI
 ```
 
-Pour publier :
+Pour publier, un script fait l'enchaînement complet :
 
 ```bash
-npm run sync
-.claude/skills/verifier-publication/audit.py   # contrôles avant publication
-git add -A content
-git commit -m "Publie : <titre de la note>"
-git push
+.claude/skills/4-site-commit-and-publish/commit-and-publish.sh -m "Publie : <titre>"   # sync, audit, build, commit
+.claude/skills/4-site-commit-and-publish/commit-and-publish.sh --push                  # pousse, puis vérifie le déploiement
 ```
+
+Il s'arrête sur un constat d'audit bloquant, et refuse de commiter si un fichier dont
+dépend la construction est modifié sans être mis en scène. Il **ne pousse jamais** sans
+`--push`. `--dry-run` montre l'enchaînement sans rien écrire, `--help` détaille le reste.
 
 GitHub Actions reconstruit et déploie. Le workflow lance **`build:ci`**, jamais `sync` : le coffre n'existe pas sur le runner. **Le site déployé reflète exactement le `content/` commité** — synchroniser sans commiter ne publie rien.
 
@@ -86,20 +87,22 @@ Si la construction dépend d'un fichier que vous venez de changer (`quartz.confi
 ## Vérifier avant de publier
 
 ```bash
-.claude/skills/verifier-publication/audit.py --help
+.claude/skills/3-site-check-local/audit.py --help
 ```
 
 L'audit n'examine par défaut que les notes **modifiées depuis HEAD**, et affiche tous ses contrôles avec ce qu'il a examiné et ce qu'il y a trouvé :
 
 ```
-  CONTENU
-   ✓ frontmatter lisible      2 notes analysées — toutes lisibles
-   ✓ drapeau publish: true    2 examinées — toutes marquées
-   ? corps de note            2 examinées — 1 note vide
-       doute blog/Rouffignac.md — publierait une page sans contenu
+  CONTENT
+   ✓ frontmatter parses      2 notes analysed — all readable
+   ✓ publish: true flag      2 examined — all flagged
+   ? note body               2 examined — 1 empty note
+       doubt blog/Rouffignac.md — would publish a page with no content
 ```
 
 `✓` conforme · `?` doute · `▲` exposition · `✗` casse. Code de sortie 1 dès qu'il y a un `▲` ou un `✗`. `--all` pour un inventaire du corpus, `--built` pour ajouter les contrôles sur `public/`, `--quiet` pour ne voir que ce qui cloche.
+
+`--built` ajoute trois contrôles sur la sortie construite, dont la **résolution des liens internes** : un lien mort sur la page d'accueil y est une anomalie bloquante, puisque rien n'y est censé pointer dans le vide.
 
 ## Confidentialité : le frontmatter est public
 
@@ -204,15 +207,23 @@ PUBLIC_ROOT= npm run sync               # parcourir tout le coffre
 YOUTUBE_EMBED=0 npm run sync            # laisser les liens nus (YouTube *et* Instagram)
 ```
 
-## Assistants
+## Le workflow, étape par étape
 
-Le dépôt embarque des skills Claude Code dans `.claude/skills/` :
+Le dépôt embarque des skills Claude Code dans `.claude/skills/`. Leur contenu est en
+anglais ; ce README et `CLAUDE.md` restent en français.
 
-| Skill | Rôle |
-| --- | --- |
-| `verifier-publication` | contrôles avant publication ; le script `audit.py` s'utilise aussi seul |
-| `publier` | sync, vérification, construction, commit, push |
-| `ajouter-chant` | traite un chant de l'Odyssée dans le coffre, puis propage ici |
+| # | Étape | Skill | Utilisable sans Claude |
+| --- | --- | --- | --- |
+| — | Mettre à jour le coffre | — | Obsidian |
+| 1 | Ajouter un chant de l'Odyssée *(facultatif)* | `1-vault-add-chant` | — |
+| 2 | Construire et regarder en local | `2-site-construct-locally` | `npm run serve` |
+| 3 | Vérifier le site construit | `3-site-check-local` | `audit.py --built` |
+| 4 | Commiter et publier | `4-site-commit-and-publish` | `commit-and-publish.sh` |
+
+L'étape 2 n'est pas une formalité : certaines casses ne se voient que sur une page rendue.
+L'accueil généré est un jour parti en ligne avec ses 173 liens morts, ce qu'un coup d'œil
+sur `localhost:8080` aurait arrêté. L'audit `--built` contrôle désormais cette classe de
+défaut, mais l'œil humain reste le dernier filet.
 
 ## Mise en place de GitHub Pages
 
