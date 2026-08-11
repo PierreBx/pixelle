@@ -10,10 +10,9 @@ views:
     order:
       - file.name
       - tags
-      - file.ctime
       - description
     sort:
-      - property: file.ctime
+      - property: created
         direction: DESC
       - property: file.name
         direction: ASC
