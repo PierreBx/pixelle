@@ -169,6 +169,14 @@ Si deux images du coffre portent le même nom à l'extension près (`photo.png` 
 
 `OPTIMISE_IMAGES=0` rétablit la copie brute, pour comparer.
 
+Une image n'est ré-encodée que si l'original du coffre est plus récent que la copie. Changer `IMAGE_QUALITY` ou `IMAGE_MAX_SIDE` ne suffit donc pas à reconvertir l'existant : il faut supprimer les copies pour forcer le passage.
+
+```bash
+find content/_assets/images -maxdepth 1 -type f -delete && npm run sync
+```
+
+Les vignettes, elles, ne sont réécrites que si le ré-encodage gagne au moins un dixième du poids. Sans ce seuil, une vignette restée juste au-dessus de la limite repassait à la moulinette à chaque synchronisation, perdant un peu de qualité à chaque fois.
+
 ### Vignettes : aucune requête tierce avant le clic
 
 Les notes gardent un simple lien markdown, lisible dans Obsidian. C'est la synchronisation qui le remplace, **dans `content/` uniquement**, par une vignette cliquable. Le coffre n'est jamais modifié.

@@ -691,7 +691,12 @@ async function shrinkThumbnail(dest) {
     })
     .jpeg({ quality: IMAGE_QUALITY, mozjpeg: true })
     .toBuffer()
-  if (encoded.length >= before) return false
+  // Un gain marginal ne justifie pas de réécrire : sans ce seuil, une vignette
+  // restée juste au-dessus de la limite était ré-encodée à *chaque*
+  // synchronisation, perdant quelques octets et un peu de qualité à chaque
+  // passage, et salissant le dépôt sans fin. Exiger un dixième garantit la
+  // convergence en une passe.
+  if (encoded.length > before * 0.9) return false
   await writeFile(dest, encoded)
   return true
 }
