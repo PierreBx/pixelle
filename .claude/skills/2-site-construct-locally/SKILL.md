@@ -14,22 +14,25 @@ would have caught it.
 
 ## Build and serve
 
-`npm run serve` is `sync && quartz build --serve` — it projects the vault into `content/`,
-builds `public/`, then serves it. It **blocks**, so run it in the background and wait for
-the port to answer rather than guessing a delay:
+`npm run preview` is `sync && quartz build && node scripts/preview.mjs` — it projects the
+vault into `content/`, builds `public/` **exactly as the CI does**, then serves it. It
+**blocks**, so run it in the background and wait for the port to answer rather than
+guessing a delay:
 
 ```bash
-npm run serve            # run_in_background
+npm run preview          # run_in_background
 until curl -sf -o /dev/null http://localhost:8080/; do sleep 1; done
 ```
 
 Check first whether something already listens (`ss -ltn | grep 8080`). A server left over
 from an earlier run serves **stale HTML**, and you would show the user a page that no
-longer matches the vault. Default port 8080, hot-reload socket 3001; both are overridable:
+longer matches the vault. Another port: `PORT=8081 npm run preview`.
 
-```bash
-npx quartz build --serve --port 8081 --wsPort 3002
-```
+**Do not use `npm run serve` here.** Quartz's own dev server disables asset hashing and
+blanks `data-basepath`, so it emits `index.css` where the CI emits `index-fd4047da.css`.
+The preview would be approximate, and — worse — step 4 compares the served site to this
+very `public/`, so a dev-mode build makes that verification fail on a perfectly good
+deploy. That happened; it cost an hour of chasing a phantom.
 
 ## Read the sync report as it goes by
 
@@ -56,13 +59,13 @@ Give the user, in this order:
    read from `public/`, not guessed. `Manuel Casares - Piano` is served at
    `manuel-casares---piano`.
 3. **Anything the sync or the build flagged**, briefly.
-4. **How to stop the server**, and that it keeps running until then.
+4. **How to stop the server** (`pkill -f scripts/preview.mjs`), and that it keeps running
+   until then.
 
 Then stop. Do not run the audit here and do not offer to publish — the point of this step
 is that a human sees the site first. Once they have looked, `3-site-check-local` is next.
 
 ## If they ask for a change
 
-Edit the **vault**, never `content/`. Then re-run the build. The running server does not
-watch for changes unless started with `--watch`, so nothing moves on screen without a
-rebuild.
+Edit the **vault**, never `content/`. Then stop the server and re-run `npm run preview`:
+it does not watch the vault, so nothing moves on screen without a rebuild.

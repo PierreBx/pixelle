@@ -27,6 +27,11 @@ comes *after* the build — unrendered blocks in the HTML, bases that came out e
 If it answers `no page — run npm run build:ci first`, the build has not run: send the user
 back to step 2 rather than building here.
 
+A `public/` produced by `npm run serve` is not comparable either — Quartz's dev server
+emits `index.css` where a real build emits `index-fd4047da.css`. Step 2 uses
+`npm run preview` precisely to avoid that; if you see unhashed asset names in
+`public/index.html`, send the user back to step 2.
+
 `public/` can also be **stale** — built before the last vault edit. Compare timestamps when
 in doubt; auditing a stale build is how a fixed bug gets reported as still broken:
 

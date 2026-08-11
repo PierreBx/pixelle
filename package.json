@@ -10,6 +10,7 @@
     "sync:dry": "node scripts/sync-vault.mjs --dry-run --verbose",
     "build": "npm run sync && npx quartz build",
     "serve": "npm run sync && npx quartz build --serve",
+    "preview": "npm run build && node scripts/preview.mjs",
     "build:ci": "npx quartz build",
     "quartz": "./quartz/bootstrap-cli.mjs",
     "install-plugins": "npx tsx ./quartz/plugins/loader/install-plugins.ts",

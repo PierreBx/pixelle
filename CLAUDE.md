@@ -82,7 +82,8 @@ de privé n'est copié, le lien s'affiche en texte brut.
 ```bash
 npm run sync      # coffre -> content/
 npm run sync:dry  # montre ce qui serait copié, sans écrire
-npm run serve     # sync + build + aperçu sur http://localhost:8080
+npm run preview   # sync + build de production + aperçu sur http://localhost:8080
+npm run serve     # serveur de dév Quartz — actifs non hachés, à éviter pour l'aperçu
 npm run build     # sync + build
 npm run build:ci  # build seul, sans sync (ce que fait la CI)
 ```

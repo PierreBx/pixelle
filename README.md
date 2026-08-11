@@ -64,7 +64,8 @@ Sans eux, un `PUBLIC_ROOT` mal orthographié viderait `content/` sans un mot.
 ```bash
 npm run sync        # coffre -> content/
 npm run sync:dry    # montre ce qui serait copié, sans rien écrire
-npm run serve       # sync + build + aperçu sur http://localhost:8080
+npm run preview     # sync + build de production + aperçu sur http://localhost:8080
+npm run serve       # serveur de dév Quartz — actifs non hachés, à éviter
 npm run build       # sync + build
 npm run build:ci    # build seul, sans sync — ce que lance la CI
 ```
@@ -216,7 +217,7 @@ anglais ; ce README et `CLAUDE.md` restent en français.
 | --- | --- | --- | --- |
 | — | Mettre à jour le coffre | — | Obsidian |
 | 1 | Ajouter un chant de l'Odyssée *(facultatif)* | `1-vault-add-chant` | — |
-| 2 | Construire et regarder en local | `2-site-construct-locally` | `npm run serve` |
+| 2 | Construire et regarder en local | `2-site-construct-locally` | `npm run preview` |
 | 3 | Vérifier le site construit | `3-site-check-local` | `audit.py --built` |
 | 4 | Commiter et publier | `4-site-commit-and-publish` | `commit-and-publish.sh` |
 
