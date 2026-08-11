@@ -24,18 +24,3 @@ views:
         direction: ASC
     columnSize:
       file.name: 320
-  - type: list
-    name: Liste
-    filters:
-      and:
-        - file.folder.containsAny("blog", "posts", "odyssée")
-        - '!file.name.startsWith("_")'
-        - file.name != "index"
-    groupBy:
-      property: file.folder
-      direction: ASC
-    order:
-      - file.name
-    sort:
-      - property: file.name
-        direction: ASC

@@ -191,8 +191,11 @@ plugins:
     layout:
       position: beforeBody
       priority: 20
+  # 151 notes sur 155 portent des étiquettes, et `tag-page` fabrique déjà la
+  # page de chacune. Sans cette liste, aucune page ne menait à ces pages : le
+  # corpus était rangé par sujet et parcourable par personne.
   - source: "@quartz-community/tag-list"
-    enabled: false
+    enabled: true
     layout:
       position: beforeBody
       priority: 30
@@ -279,6 +282,16 @@ plugins:
         - created
         - modified
         - summary
+        # `article-title` rend déjà le titre en H1, juste au-dessus : en
+        # propriété il s'affichait une seconde fois, à trois centimètres de
+        # lui-même. La clé est par ailleurs obligatoire sur la note d'accueil,
+        # qui est copiée vers `index.md` et prendrait sinon « index » pour titre.
+        - title
+        # Les étiquettes étaient déjà cliquables ici, noyées dans le tableau
+        # des propriétés entre `killed_by` et `category`. `tag-list`, activé
+        # ci-dessous, les rend en pastilles sous le titre — leur place. Les
+        # laisser aux deux endroits les affichait simplement deux fois.
+        - tags
       hidePropertiesView: false
       delimiters: ---
       language: yaml

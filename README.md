@@ -126,7 +126,9 @@ Cela ne dispense pas de l'étape 3 : la CI constate, elle ne relit pas une page 
 
 ## Confidentialité : le frontmatter est public
 
-Le plugin `note-properties` tourne avec `includeAll: true`. **Toute** clé de frontmatter d'une note publiée devient une ligne visible du tableau de propriétés, sauf celles listées dans `excludedProperties` (`publish`, `homepage`, `created`, `modified`, `summary`).
+Le plugin `note-properties` tourne avec `includeAll: true`. **Toute** clé de frontmatter d'une note publiée devient une ligne visible du tableau de propriétés, sauf celles listées dans `excludedProperties` (`publish`, `homepage`, `created`, `modified`, `summary`, `title`, `tags`).
+
+`title` et `tags` sont exclus parce qu'ils sont rendus ailleurs — le titre en H1, les étiquettes en pastilles cliquables sous le titre. Les notes de `posts/`, dont le frontmatter se réduit à ces clés, n'affichent donc plus de tableau du tout.
 
 Conséquence : ajouter une clé au frontmatter d'une note publiée l'expose **sans décision explicite**. L'audit signale toute clé inédite ou étrangère aux conventions de son dossier.
 
@@ -212,7 +214,11 @@ Une base ne voit que `content/`, qui ne contient que du publié : elle ne peut r
 
 ## Choisir la page d'accueil
 
-Par défaut, `content/index.md` est **généré** : une liste des notes publiées, groupée par dossier. Pour écrire l'accueil vous-même, ajoutez `homepage: true` :
+C'est aujourd'hui `public/Pixelle.md` qui tient ce rôle, dans le coffre. La page se compose de trois entrées : les billets, listés sur place par `blogEntriesBase` ; les [[Trouvailles]], c'est-à-dire les liens triés ; et le [[Sommaire]], qui garde l'index complet, Odyssée comprise.
+
+Pour l'éditer, ouvrez la note dans Obsidian — jamais `content/index.md`, qui en est la copie.
+
+Par défaut, en l'absence d'une telle note, `content/index.md` est **généré** : une liste des notes publiées, groupée par dossier. Pour écrire l'accueil vous-même, ajoutez `homepage: true` :
 
 ```yaml
 ---
@@ -269,6 +275,7 @@ anglais ; ce README et `CLAUDE.md` restent en français.
 | # | Étape | Skill | Utilisable sans Claude |
 | --- | --- | --- | --- |
 | — | Mettre à jour le coffre | — | Obsidian |
+| 0 | Trier la file `staging/` *(facultatif)* | `0-vault-triage-staging` | — |
 | 1 | Ajouter un chant de l'Odyssée *(facultatif)* | `1-vault-add-chant` | — |
 | 2 | Construire et regarder en local | `2-site-construct-locally` | `npm run preview` |
 | 3 | Vérifier le site construit | `3-site-check-local` | `audit.py --built` |

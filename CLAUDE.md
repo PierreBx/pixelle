@@ -161,19 +161,25 @@ Bases existantes : `allPosts.base` (billets de `blog/` — ne couvre **pas** `po
 
 `note-properties` tourne avec `includeAll: true` : **toute** clé de frontmatter d'une
 note publiée devient visible, sauf celles listées dans `excludedProperties`
-(`publish`, `homepage`, `created`, `modified`, `summary`).
+(`publish`, `homepage`, `created`, `modified`, `summary`, `title`, `tags`).
+
+`title` et `tags` en sont exclus parce qu'ils sont **rendus ailleurs** : le titre en H1
+par `article-title`, les étiquettes en pastilles sous le titre par `tag-list`. Les
+laisser dans le tableau les affichait deux fois. Conséquence agréable : les notes de
+`posts/`, dont le frontmatter se réduit à ces clés, n'ont plus de tableau du tout.
 
 Conséquence : ajouter une clé au frontmatter d'une note publiée l'expose **sans décision
 explicite**. Vérifier avant de publier (`/3-site-check-local`).
 
 ## Workflow et skills
 
-Le coffre se modifie à la main ; les quatre étapes suivantes sont outillées. Les skills sont nommés en anglais et leur contenu est en
+Le coffre se modifie à la main ; les étapes suivantes sont outillées. Les skills sont nommés en anglais et leur contenu est en
 anglais ; le reste du dépôt (ce fichier, `README.md`, les notes) reste en français.
 
 | # | Étape | Skill |
 | --- | --- | --- |
 | — | Mise à jour manuelle du coffre | l'utilisateur, dans Obsidian |
+| 0 | Tri de la file `staging/` (facultatif) | `/0-vault-triage-staging` |
 | 1 | Ajout d'un chant de l'Odyssée (facultatif) | `/1-vault-add-chant N` |
 | 2 | Construction locale + URL de test | `/2-site-construct-locally` |
 | 3 | Vérification du site construit | `/3-site-check-local` |
@@ -191,8 +197,10 @@ pages servies au build local — la sortie de Quartz est déterministe, donc l'�
 que le nouveau contenu est bien en ligne. Ne pas se fier à l'API GitHub Actions : elle a
 rapporté des états périmés, et son quota anonyme (60 requêtes/heure) s'épuise vite.
 
-Le tri des captures de `staging/` vers `public/posts/` se fait à la main, dans le coffre :
-il n'y a pas de skill pour ça.
+Le tri des captures de `staging/` vers `public/posts/` a désormais son skill (étape 0).
+Il ne publie rien : il prépare des notes, que les étapes 2 à 4 publient ensuite. La
+taxonomie des étiquettes (`post/<thème>`) est close en pratique — le skill la relit dans
+le coffre plutôt que d'en inventer une.
 
 ## Divers
 
