@@ -7,4 +7,4 @@ created: 2026-08-09
 modified: 2026-08-10
 ---
 
-![[2026-08-09-Jardins de Marqueyssac.png]]
+![[2026-08-09-Jardins de Marqueyssac.webp|Les buis taillés en vagues des jardins de Marqueyssac, dominant la vallée de la Dordogne]]

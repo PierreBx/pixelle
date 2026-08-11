@@ -8,4 +8,4 @@ tags:
 category:
   - art
 ---
-![[IMG_4769.jpeg]]
+![[IMG_4769.webp|Photogramme du film : Colin Firth en uniforme, décorations sur la poitrine, entouré de courtisans]]

@@ -30,6 +30,8 @@ L’Oiseau de Feu
 
 Boléro
 
-![[2026-04-08-{{NOTENAME}}-{{IMAGENAMEDIGIT}}.jpg]]![[2026-04-08-{{NOTENAME}}-{{IMAGENAMEDIGIT}}.png]]
+![[2026-04-08-Bejart Ballet-1.webp|Les danseurs du Béjart Ballet Lausanne autour d’une grande table ronde rouge, bras levés]]
 
-![[2026-04-08-{{NOTENAME}}-{{IMAGENAMEDIGIT}}-1.jpg]]
+![[2026-04-08-Bejart Ballet-2.webp|Une danseuse en académique rouge en plein saut, seule dans la lumière]]
+
+![[2026-04-08-Bejart Ballet-3.webp|Une danseuse en équilibre sur la table ronde rouge, entourée des danseurs bras levés]]

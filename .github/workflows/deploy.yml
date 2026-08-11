@@ -50,6 +50,33 @@ jobs:
       - name: Build site
         run: npm run build:ci
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install audit dependencies
+        run: pip install --quiet pyyaml
+
+      # Le même audit qu'à l'étape 3, sur ce que la poussée a changé, et il
+      # échoue sur `▲` ou `✗`. Placé avant le téléversement : un audit rouge
+      # n'envoie pas d'artefact, donc le travail de déploiement ne part pas et
+      # le site en ligne reste celui d'avant.
+      #
+      # `--since HEAD^` plutôt que `--all` : le contrôle des clés de
+      # frontmatter mesure une nouveauté, ce qui n'a de sens que par rapport à
+      # un état antérieur. Sur le tout premier commit, l'arbre vide de git
+      # tient ce rôle — tout est alors « nouveau », et rien n'est signalé
+      # comme tel puisque rien n'existait avant.
+      - name: Audit the built site
+        run: |
+          if git rev-parse --verify --quiet HEAD^ >/dev/null; then
+            since=HEAD^
+          else
+            since=$(git hash-object -t tree /dev/null)
+          fi
+          echo "Audit depuis $since"
+          .claude/skills/3-site-check-local/audit.py --since "$since" --built
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:

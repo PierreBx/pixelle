@@ -19,6 +19,6 @@ On ne présente plus Martha Argerich, la « lionne du piano », dont la carrièr
 **Wolfgang Amadeus Mozart**, _Sonate pour piano à quatre mains en do majeur K. 521_
 **Sergueï Rachmaninov**, _Danses Symphoniques op. 45_ (version pour piano à quatre mains)
 
-![[credit-adriano-heitman-1.avif]]
+![[credit-adriano-heitman-1.avif|Martha Argerich souriante au clavier de son piano de concert]]
 
-![[CALAPROG-MArtha-Argerich-DongHLim202604204pp.pdf]]
+[Programme de salle — PDF, 1,3 Mo](../_assets/docs/CALAPROG-MArtha-Argerich-DongHLim202604204pp.pdf)

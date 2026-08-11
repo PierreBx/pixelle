@@ -18,7 +18,7 @@ created: 2026-03-30
 modified: 2026-08-09
 ---
 
-![[le-chardonneret-cover.jpg]]
+![[le-chardonneret-cover.webp|Couverture du roman de Donna Tartt : le tableau du chardonneret entrevu par une déchirure du papier]]
 
 ## Résumé
 

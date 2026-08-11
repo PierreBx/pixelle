@@ -54,6 +54,7 @@ examples:
   audit.py                  before committing
   audit.py --built          after `npm run build:ci`, adds the checks on public/
   audit.py --all            full corpus inventory, for a periodic review
+  audit.py --since HEAD^    what one commit changed — the form CI uses
   audit.py --quiet          show only what is wrong
 
 Nothing is fixed or modified. content/ is generated, so every correction
@@ -61,6 +62,22 @@ belongs in the Obsidian vault.
 """
 
 UNRENDERED = ("dataview", "mapview", "leaflet", "zoommap")
+
+IMAGE_EXTS = (".webp", ".png", ".jpg", ".jpeg", ".avif", ".gif", ".svg", ".bmp")
+DOC_EXTS = (".pdf",)
+
+# Une image part avec la page, que le visiteur l'ait demandée ou non ; un
+# document ne part que s'il clique. Deux régimes, donc deux seuils — et c'est
+# la même distinction qui fait ranger les PDF hors du flux d'images à la
+# synchronisation. Au-delà de 2 Mo, une seule image pèse plus que tout le
+# reste de la page : c'est une casse, pas une préférence.
+IMAGE_DOUBT_BYTES = 500 * 1024
+IMAGE_BROKEN_BYTES = 2 * 1024 * 1024
+
+# Comparaison par défaut : l'arbre de travail contre HEAD. `--since REF` la
+# déplace sur un commit, seule forme utile en intégration continue, où tout est
+# déjà commité et où `git status` ne montrerait donc jamais rien.
+SINCE = None
 
 # Notes deliberately reduced to their frontmatter: they exist to be the target
 # of a link, not to be read. Do not report them as empty.
@@ -216,7 +233,16 @@ def excluded_properties():
 
 
 def changed_paths():
-    """Paths under content/ added or modified since HEAD."""
+    """Paths under content/ added or modified since the comparison point."""
+    if SINCE:
+        r = subprocess.run(
+            ["git", "diff", "--name-only", "-z", "--diff-filter=d", SINCE, "--", "content"],
+            capture_output=True,
+            text=True,
+        )
+        if r.returncode != 0:
+            die(f"--since {SINCE}: unknown revision")
+        return {e for e in r.stdout.split("\0") if e}
     out = subprocess.run(
         ["git", "status", "--porcelain", "--untracked-files=all", "-z", "--", "content"],
         capture_output=True,
@@ -232,11 +258,29 @@ def read(f):
 
 
 def show_head(path):
-    """File contents as committed, or None when absent from HEAD."""
+    """File contents at the comparison point, or None when absent from it."""
     r = subprocess.run(
-        ["git", "show", f"HEAD:{path}"], capture_output=True, text=True, errors="replace"
+        ["git", "show", f"{SINCE or 'HEAD'}:{path}"],
+        capture_output=True,
+        text=True,
+        errors="replace",
     )
     return r.stdout if r.returncode == 0 else None
+
+
+def human(n):
+    if n >= 1024 * 1024:
+        return f"{n / (1024 * 1024):.1f} Mo".replace(".", ",")
+    return f"{max(1, round(n / 1024))} Ko"
+
+
+def content_assets():
+    """Basenames of every non-markdown file present in content/."""
+    return {
+        os.path.basename(f).lower()
+        for f in glob.glob("content/**/*", recursive=True)
+        if os.path.isfile(f) and not f.endswith(".md")
+    }
 
 
 def plural(n, word, plural_form=None):
@@ -260,7 +304,7 @@ def audit_content(rep, scope_all):
     scope = (
         "whole corpus"
         if scope_all
-        else f"{plural(len(changed), 'note changed', 'notes changed')} since HEAD"
+        else f"{plural(len(changed), 'note changed', 'notes changed')} since {SINCE or 'HEAD'}"
     )
     rep.header.append(("scope", f"{scope}  ({len(every)} notes published in total)"))
 
@@ -271,11 +315,13 @@ def audit_content(rep, scope_all):
     c_block = rep.check(S, "blocks Quartz renders")
     c_self = rep.check(S, "frontmatter links")
     c_date = rep.check(S, "usable dates")
+    c_alt = rep.check(S, "texte alternatif")
     c_keys = rep.check(S, "publicly exposed keys")
 
     if not changed:
-        for c in (c_parse, c_flag, c_body, c_block, c_self, c_date, c_keys):
+        for c in (c_parse, c_flag, c_body, c_block, c_self, c_date, c_alt, c_keys):
             c.verdict = "not applicable"
+        audit_assets(rep)
         audit_bases(rep)
         return
 
@@ -303,7 +349,8 @@ def audit_content(rep, scope_all):
             absorb(os.path.relpath(f, "content"), frontmatter(committed)[0])
 
     n = len(changed)
-    stubs = links = dates = 0
+    stubs = links = dates = embeds = 0
+    assets = content_assets()
 
     for f in changed:
         rel = os.path.relpath(f, "content")
@@ -330,6 +377,27 @@ def audit_content(rep, scope_all):
             if re.search(r"^```\s*" + tag + r"\b", body, re.M):
                 c_block.add(
                     "broken", f"{rel} — `{tag}` block shown as raw code on the site"
+                )
+
+        # Obsidian écrit le texte alternatif dans l'alias de l'incorporation,
+        # et Quartz le rend en `alt` — sauf quand l'alias est purement
+        # numérique (`|300`, `|300x200`), qui désigne des dimensions.
+        for inner in re.findall(r"!\[\[([^\]]+?)\]\]", body):
+            target = inner.split("|")[0].strip()
+            if not target.lower().endswith(IMAGE_EXTS):
+                continue
+            # Une incorporation qui ne se résout pas est déjà signalée comme
+            # lien manquant par la synchronisation : ne pas la compter deux fois.
+            if os.path.basename(target).lower() not in assets:
+                continue
+            embeds += 1
+            alt = inner.split("|", 1)[1].strip() if "|" in inner else ""
+            if not alt or re.fullmatch(r"\d*x?\d*", alt):
+                c_alt.add(
+                    "broken",
+                    f"{rel} — `{target}` part sans alternative : rien à lire "
+                    f"pour qui ne voit pas l'image. Dans le coffre : "
+                    f"`![[{target}|description]]`",
                 )
 
         for k, v in fm.items():
@@ -390,6 +458,8 @@ def audit_content(rep, scope_all):
             "no self-reference", lambda k: f"{plural(k, 'self-reference')}")
     verdict(c_date, plural(dates, "date examined", "dates examined"),
             "all usable", lambda k: plural(k, "invalid"))
+    verdict(c_alt, plural(embeds, "image incorporée", "images incorporées"),
+            "toutes décrites", lambda k: plural(k, "sans alternative"))
 
     if scope_all:
         audit_keys_corpus(rep, c_keys, every, excl)
@@ -409,6 +479,7 @@ def audit_content(rep, scope_all):
             + (trouble or "nothing new")
         )
 
+    audit_assets(rep)
     audit_bases(rep)
 
 
@@ -431,6 +502,64 @@ def audit_keys_corpus(rep, check, every, excl):
     for k, holders in sorted(inventory.items()):
         if len(holders) <= 2:
             check.add("expose", f"`{k}` — rare key, on {', '.join(holders)}")
+
+
+def audit_assets(rep):
+    """Poids de ce que content/ fait charger.
+
+    Hors périmètre du diff, volontairement : le poids d'une page est un fait
+    du site entier, pas d'une modification. Une image trop lourde publiée il y
+    a six mois pèse aujourd'hui autant qu'une image ajoutée ce matin.
+    """
+    S = "content"
+    c_img = rep.check(S, "poids des images")
+    c_doc = rep.check(S, "documents liés")
+
+    files = [f for f in glob.glob("content/**/*", recursive=True) if os.path.isfile(f)]
+    images = sorted(
+        ((os.path.getsize(f), f) for f in files if f.lower().endswith(IMAGE_EXTS)),
+        reverse=True,
+    )
+    docs = sorted(
+        ((os.path.getsize(f), f) for f in files if f.lower().endswith(DOC_EXTS)),
+        reverse=True,
+    )
+
+    total = sum(size for size, _ in images)
+    for size, f in images:
+        rel = os.path.relpath(f, "content")
+        if size > IMAGE_BROKEN_BYTES:
+            c_img.add(
+                "broken",
+                f"{rel} — {human(size)} chargés avec la page ; "
+                f"la synchronisation aurait dû la ré-encoder (OPTIMISE_IMAGES)",
+            )
+        elif size > IMAGE_DOUBT_BYTES:
+            c_img.add(
+                "doubt",
+                f"{rel} — {human(size)}, au-dessus de {human(IMAGE_DOUBT_BYTES)} ; "
+                f"acceptable pour une photo de détail, à surveiller",
+            )
+    c_img.verdict = f"{plural(len(images), 'image')}, {human(total)} au total — " + (
+        f"{plural(len(c_img.entries), 'au-dessus du seuil', 'au-dessus du seuil')}"
+        if c_img.entries
+        else f"toutes sous {human(IMAGE_DOUBT_BYTES)}"
+    )
+
+    # Les documents ne sont pas pesés : ils ne partent qu'au clic. Ce qui se
+    # vérifie, c'est qu'aucun n'est resté sur le chemin des images — d'où il
+    # serait incorporé, donc chargé avec la page.
+    stray = [os.path.relpath(f, "content") for _, f in docs if "_assets/docs/" not in f]
+    c_doc.verdict = (
+        f"{plural(len(docs), 'document')}, {human(sum(s for s, _ in docs))} — "
+        + ("hors du flux d'images" if not stray else f"{plural(len(stray), 'mal rangé')}")
+    )
+    for rel in stray:
+        c_doc.add(
+            "doubt",
+            f"{rel} — hors de _assets/docs/ ; s'il est incorporé quelque part, "
+            f"il se télécharge au chargement de la page",
+        )
 
 
 def audit_bases(rep):
@@ -596,11 +725,19 @@ def main():
         help="add the checks on public/ (requires a recent `npm run build:ci`)",
     )
     parser.add_argument(
+        "--since",
+        metavar="REF",
+        help="compare against a commit instead of the working tree (CI: HEAD^)",
+    )
+    parser.add_argument(
         "--quiet",
         action="store_true",
         help="hide passing checks, show only what is wrong",
     )
     args = parser.parse_args()
+
+    global SINCE
+    SINCE = args.since
 
     root = find_root()
     if root is None:

@@ -16,4 +16,4 @@ Dans la bouche de Micheline, un spectacle doit être drôle : « On n’est pas 
 
 Elles et ils ont connu mai 68 et la libération sexuelle ; les voilà dans un décor de résidence sénior, aussi édulcoré que le bouillon clair du soir : sans saveur. Mais pas sans amour. En maître de cérémonie, Mohamed El Khatib les invite à faire le récit de leur vie amoureuse actuelle. Devenu l’un des grands noms du théâtre documentaire, l’ex-sociologue écrit sur celles et ceux, invisibles, que la société relègue dans un angle mort. De ces paroles recueillies en maison de retraite, il construit un spectacle émouvant en forme de promesse : celle d’un désir qui se niche dans la fragilité de nos vies, jusqu’aux derniers instants.
 
-![[131-1751279351.jpg.webp]]
+![[131-1751279351.jpg.webp|Photogramme du spectacle : sept personnes âgées debout sur un plateau nu, l’une en fauteuil roulant]]

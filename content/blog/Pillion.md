@@ -8,4 +8,4 @@ tags:
 category:
   - art
 ---
-![[IMG_4758.jpeg]]
+![[IMG_4758.webp|Photogramme du film : deux hommes en combinaison de moto en cuir, debout côte à côte]]

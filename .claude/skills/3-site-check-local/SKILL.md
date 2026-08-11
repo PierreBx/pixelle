@@ -1,6 +1,6 @@
 ---
 name: 3-site-check-local
-description: "Step 3 of the pixelle workflow: audit the site that was just built locally — empty notes, newly exposed frontmatter keys, convention drift, Obsidian blocks Quartz cannot render, invalid dates, base columns, and internal links that do not resolve. Use when the user asks to check or verify the site or the vault, and always as the last gate before publishing."
+description: "Step 3 of the pixelle workflow: audit the site that was just built locally — empty notes, newly exposed frontmatter keys, convention drift, Obsidian blocks Quartz cannot render, invalid dates, image weight, missing alt text, base columns, and internal links that do not resolve. Use when the user asks to check or verify the site or the vault, and always as the last gate before publishing."
 allowed-tools: Read, Bash, Glob, Grep
 ---
 
@@ -20,9 +20,13 @@ followed by a fresh `2-site-construct-locally`.
 .claude/skills/3-site-check-local/audit.py --built
 ```
 
-`--built` matters: three of the eleven checks read `public/` and are the reason this step
+`--built` matters: three of the fourteen checks read `public/` and are the reason this step
 comes *after* the build — unrendered blocks in the HTML, bases that came out empty, and
 **internal links that resolve**.
+
+The same audit runs in CI (`--since HEAD^ --built`), between the build and the artifact
+upload, so a red audit stops the deploy. That does not make this step redundant: CI checks,
+it does not look at a rendered page.
 
 If it answers `no page — run npm run build:ci first`, the build has not run: send the user
 back to step 2 rather than building here.
@@ -68,6 +72,15 @@ No need to redo these by hand — but understand them to interpret the output:
   there is built from a note that exists, so one dead link means the generator is wrong.
   That is how 173 dead links once shipped. Elsewhere a dangling link is only a doubt — a
   published note citing a private or unwritten one renders as plain text, which is expected.
+- **image weight** — doubt over 500 KB, breakage over 2 MB. The sync re-encodes every raster
+  image to WebP, so a breakage here means one slipped past it (an extension outside
+  `RASTER_EXTS`, or a name collision the sync reported). Two checks ignore the diff scope on
+  purpose: page weight is a fact about the whole site, not about one edit.
+- **alt text** — an embedded image with no alternative is a breakage. The fix is in the
+  vault, in the embed's alias: `![[image.png|description]]`. Obsidian shows it as a caption,
+  Quartz renders it as `alt`. A purely numeric alias (`|300`, `|300x200`) is a dimension,
+  not a text, and does not count. Embeds that do not resolve are skipped — the sync already
+  reports those as missing links.
 
 ## Also worth a look
 

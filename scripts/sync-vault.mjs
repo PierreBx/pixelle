@@ -110,6 +110,76 @@ const ATTACHMENT_EXTS = new Set([
   ".mp4", ".webm", ".mov",
 ])
 
+// ---------------------------------------------------------------------------
+// Allègement des pièces jointes
+// ---------------------------------------------------------------------------
+// Le coffre garde ses originaux ; c'est la copie vers `content/` qui est
+// allégée, exactement comme les vignettes de vidéos plus bas. Deux mesures
+// distinctes, parce que deux poids distincts :
+//
+//   - une **image** est chargée avec la page, sans que le visiteur l'ait
+//     demandée : elle est redimensionnée et ré-encodée en WebP ;
+//   - un **document** (PDF) ne l'est que si le lecteur le réclame — encore
+//     faut-il qu'il soit lié et non incorporé. `![[x.pdf]]` fait rendre à
+//     Quartz un cadre qui télécharge le fichier entier au chargement de la
+//     page : 15 Mo de programmes de concert partaient ainsi sur quatre pages.
+//
+// `OPTIMISE_IMAGES=0` rétablit la copie brute, pour comparer.
+
+const OPTIMISE_IMAGES = process.env.OPTIMISE_IMAGES !== "0"
+
+/**
+ * Plus grand côté servi, et non plus grande largeur : une photo en hauteur de
+ * 1600×2133 tient dans une limite de largeur tout en pesant trois mégapixels.
+ * C'est la surface qui fait le poids, donc c'est la surface qu'il faut borner.
+ * 1600 laisse deux fois la largeur de la colonne de texte, écrans denses compris.
+ */
+const IMAGE_MAX_SIDE = Number(process.env.IMAGE_MAX_SIDE ?? 1600)
+const IMAGE_QUALITY = Number(process.env.IMAGE_QUALITY ?? 80)
+
+/** Vignettes : jamais agrandies au-delà de la colonne, un cran plus petites. */
+const THUMB_MAX_SIDE = 1200
+
+/**
+ * Formats ré-encodés en WebP. `.gif` en est exclu (l'animation survit mal),
+ * `.avif` aussi (déjà plus compact que ce que WebP produirait), et `.svg`
+ * n'est pas une image matricielle.
+ */
+const RASTER_EXTS = new Set([".png", ".jpg", ".jpeg", ".webp"])
+
+/** Documents : liés, jamais incorporés, et rangés hors du flux d'images. */
+const DOC_EXTS = new Set([".pdf"])
+const DOC_DIR = "_assets/docs"
+
+/** Au-delà, une vignette déjà téléchargée est ré-encodée sur place. */
+const THUMB_MAX_BYTES = 200 * 1024
+
+/**
+ * Où atterrit une pièce jointe dans `content/`, et sous quelle forme.
+ *
+ * Le nom de destination est décidé **avant** tout encodage, et seulement à
+ * partir de l'extension : les notes sont réécrites à partir de ce plan, donc
+ * il doit être prévisible. Un encodage qui déciderait après coup de garder le
+ * PNG laisserait les notes pointer vers un `.webp` inexistant.
+ */
+function attachmentPlan(relPath) {
+  const ext = path.extname(relPath).toLowerCase()
+  const dest = stripPublicRoot(relPath)
+  if (DOC_EXTS.has(ext)) {
+    return { kind: "doc", dest: `${DOC_DIR}/${path.basename(relPath)}`, ext }
+  }
+  if (OPTIMISE_IMAGES && RASTER_EXTS.has(ext)) {
+    return { kind: "image", dest: `${dest.slice(0, -ext.length)}.webp`, ext }
+  }
+  return { kind: "raw", dest, ext }
+}
+
+/** Taille lisible, pour l'étiquette d'un lien de document. */
+function humanSize(bytes) {
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1).replace(".", ",")} Mo`
+  return `${Math.max(1, Math.round(bytes / 1024))} Ko`
+}
+
 const c = {
   dim: (s) => `\x1b[2m${s}\x1b[0m`,
   red: (s) => `\x1b[31m${s}\x1b[0m`,
@@ -407,6 +477,61 @@ function extractReferences(raw) {
   return [...refs]
 }
 
+/**
+ * Réécrit, dans la copie d'une note, les références aux pièces jointes que la
+ * synchronisation transforme : une image devient son `.webp`, un PDF incorporé
+ * devient un lien. Le coffre n'est jamais touché — la note d'origine continue
+ * de désigner l'original et reste lisible dans Obsidian.
+ *
+ * Doit tourner **avant** l'encapsulation des vidéos : celle-ci produit du HTML
+ * dont les `<img src>` pointent vers des vignettes téléchargées, qui ne sont
+ * pas des pièces jointes du coffre et n'ont rien à voir dans ce plan.
+ *
+ * @param planFor cible telle qu'écrite -> plan (voir attachmentPlan), ou null
+ *   si elle ne se résout pas. On laisse alors la référence intacte : le rapport
+ *   de synchronisation la signale déjà comme lien manquant.
+ */
+function rewriteAttachmentRefs(raw, dest, planFor) {
+  const { frontmatter, body } = splitFrontmatter(raw)
+  // Même convention que les vignettes : `blog/X.md` -> `../`, `index.md` -> ``.
+  const prefix = "../".repeat(dest.split("/").length - 1)
+
+  const swapExt = (target, ext) =>
+    target.slice(0, target.length - path.extname(target).length) + ext
+
+  // Un document est annoncé pour ce qu'il est : format et poids avant le clic,
+  // puisque c'est le lecteur qui décide de le télécharger.
+  const docLink = (plan, alias) => {
+    const label = alias?.trim() || path.basename(plan.dest, plan.ext)
+    const weight = plan.size ? `, ${humanSize(plan.size)}` : ""
+    return `[${label} — ${plan.ext.slice(1).toUpperCase()}${weight}](${encodeURI(prefix + plan.dest)})`
+  }
+
+  let out = body.replace(/(!?)\[\[([^\]]+?)\]\]/g, (all, bang, inner) => {
+    const parts = inner.split("|")
+    const target = parts[0].trim()
+    const plan = planFor(target)
+    if (!plan) return all
+    if (plan.kind === "doc") return docLink(plan, parts.slice(1).join("|"))
+    if (plan.kind !== "image") return all
+    const renamed = swapExt(target, ".webp")
+    if (renamed === target) return all
+    parts[0] = renamed
+    return `${bang}[[${parts.join("|")}]]`
+  })
+
+  out = out.replace(/(!?)\[([^\]]*)\]\(([^)]+)\)/g, (all, bang, label, url) => {
+    if (/^[a-z][a-z0-9+.-]*:/i.test(url) || url.startsWith("#")) return all
+    const plan = planFor(decodeURIComponent(url.split("#")[0].trim()))
+    if (!plan) return all
+    if (plan.kind === "doc") return docLink(plan, label)
+    if (plan.kind !== "image") return all
+    return `${bang}[${label}](${encodeURI(prefix + plan.dest)})`
+  })
+
+  return frontmatter === null ? out : `---\n${frontmatter}\n---\n${out}`
+}
+
 /** Recursively list every file in the vault, minus ignored directories. */
 async function listVaultFiles() {
   return globby("**/*", {
@@ -482,14 +607,92 @@ async function pruneEmptyDirs(root) {
   return false
 }
 
-async function copyIfChanged(src, dest) {
+async function copyIfChanged(src, dest, plan) {
   await mkdir(path.dirname(dest), { recursive: true })
   if (path.extname(src).toLowerCase() === ".base") return writeBase(src, dest)
+  if (plan?.kind === "image") return writeImage(src, dest)
   if (existsSync(dest)) {
     const [a, b] = await Promise.all([stat(src), stat(dest)])
     if (a.size === b.size && a.mtimeMs <= b.mtimeMs) return false
   }
   await copyFile(src, dest)
+  return true
+}
+
+/** sharp met ~100 ms à se charger : inutile quand rien n'est à ré-encoder. */
+let sharpModule = null
+async function getSharp() {
+  sharpModule ??= (await import("sharp")).default
+  return sharpModule
+}
+
+/**
+ * Redimensionne et ré-encode une image vers `dest`.
+ *
+ * `rotate()` sans argument applique l'orientation EXIF. Sans lui, une photo
+ * prise au téléphone ressort couchée : sharp retire les métadonnées à
+ * l'encodage, et l'orientation partirait avec elles.
+ *
+ * La taille du fichier de destination ne peut pas servir de test de fraîcheur
+ * (elle n'a rien à voir avec celle de la source) : seule la date fait foi.
+ */
+async function writeImage(src, dest) {
+  if (existsSync(dest)) {
+    const [a, b] = await Promise.all([stat(src), stat(dest)])
+    if (a.mtimeMs <= b.mtimeMs) return false
+  }
+  const sharp = await getSharp()
+  const encoded = await sharp(src)
+    .rotate()
+    .resize({
+      width: IMAGE_MAX_SIDE,
+      height: IMAGE_MAX_SIDE,
+      fit: "inside",
+      withoutEnlargement: true,
+    })
+    .webp({ quality: IMAGE_QUALITY, effort: 5 })
+    .toBuffer()
+  // Une source WebP déjà bien compressée peut battre le ré-encodage. On garde
+  // alors l'original — c'est permis ici, et seulement ici, parce que
+  // l'extension de destination est la même : le fichier reste honnête.
+  const original = await readFile(src)
+  const keepOriginal =
+    path.extname(src).toLowerCase() === ".webp" && original.length <= encoded.length
+  await writeFile(dest, keepOriginal ? original : encoded)
+  return true
+}
+
+/**
+ * Allège une vignette déjà téléchargée, sur place et sans changer son nom.
+ *
+ * Les vignettes gardent leur extension `.jpg` et sont ré-encodées en JPEG,
+ * là où les images du coffre passent en WebP. Ce n'est pas une inconséquence :
+ * le nom du fichier sert de cache de téléchargement (`existsSync` plus bas
+ * évite de redemander le réseau). Le renommer forcerait à re-télécharger
+ * quatre-vingts vignettes d'un coup, et Instagram — qui est scrapé, pas
+ * interrogé par une API — a toutes les raisons de refuser la rafale. Le poids
+ * gagné est le même ; le risque, non.
+ */
+async function shrinkThumbnail(dest) {
+  if (!OPTIMISE_IMAGES || !existsSync(dest)) return false
+  const before = (await stat(dest)).size
+  // Sans ce seuil, chaque synchronisation ré-encoderait quatre-vingts vignettes
+  // pour ne rien changer. Une fois allégée, une vignette repasse en dessous et
+  // n'est plus jamais retouchée : l'opération est idempotente et bon marché.
+  if (before <= THUMB_MAX_BYTES) return false
+  const sharp = await getSharp()
+  const encoded = await sharp(dest)
+    .rotate()
+    .resize({
+      width: THUMB_MAX_SIDE,
+      height: THUMB_MAX_SIDE,
+      fit: "inside",
+      withoutEnlargement: true,
+    })
+    .jpeg({ quality: IMAGE_QUALITY, mozjpeg: true })
+    .toBuffer()
+  if (encoded.length >= before) return false
+  await writeFile(dest, encoded)
   return true
 }
 
@@ -586,53 +789,22 @@ async function main() {
     note.dest = note === homepageNote ? "index.md" : stripPublicRoot(note.relPath)
   }
 
-  // Encapsulation des vidéos : le contenu écrit dans `content/` diverge ici du
-  // coffre. En deux temps, car on n'encapsule que ce dont on a la vignette :
-  // il faut donc savoir avant de transformer.
-  const mediaWanted = new Set()
-  if (YOUTUBE_EMBED) for (const note of published) for (const k of scanMedia(note.raw)) mediaWanted.add(k)
-
-  const mediaAvailable = new Set()
-  const mediaDead = []
-  for (const key of mediaWanted) {
-    const dest = path.join(CONTENT_DIR, thumbSlugFor(key))
-    // Déjà téléchargée : on ne redemande pas le réseau à chaque synchronisation.
-    if (existsSync(dest)) { mediaAvailable.add(key); continue }
-    // En simulation on ne télécharge rien ; l'aperçu se limite donc au cache.
-    if (DRY_RUN) continue
-    const id = key.slice(3)
-    const ok = key.startsWith("yt:")
-      ? await fetchThumbnail(id, dest)
-      : await fetchInstagramThumb(id, dest)
-    if (ok) mediaAvailable.add(key)
-    else mediaDead.push(key)
-  }
-
-  const thumbnails = new Map() // slug dans content/ -> clé du média
-  for (const note of published) {
-    const { text, thumbs } = embedYouTube(note.raw, note.dest, mediaAvailable)
-    note.output = text
-    for (const [slug, key] of thumbs) thumbnails.set(slug, key)
-  }
-
-  if (published.length === 0) {
-    console.log(c.yellow(`No notes carry \`publish: true\` — nothing to sync.`))
-    console.log(
-      c.dim(`Add \`publish: true\` to a note's frontmatter to publish it.\n`),
-    )
-  }
-
   // ---- 2. Resolve attachments referenced by published notes -------------
+  // Placé avant toute transformation du texte : les notes sont réécrites à
+  // partir du plan calculé ici, et l'encapsulation des vidéos qui suit produit
+  // du HTML dont les `<img src>` n'ont rien à faire dans cette réécriture.
   const attachmentIndex = buildAttachmentIndex(allFiles)
   // Built from destinations, not sources: a link to the homepage note under its
   // old name genuinely will not resolve, and should be reported as such.
   const noteIndex = buildNoteIndex(published.map((p) => p.dest))
 
   const attachmentsToCopy = new Map() // vault relPath -> referencing notes
+  const attachmentPlans = new Map() // vault relPath -> plan (voir attachmentPlan)
   const dangling = [] // { from, target }
   const ambiguous = [] // { from, target, candidates }
 
   for (const note of published) {
+    note.plans = new Map() // cible telle qu'écrite dans la note -> plan
     for (const target of extractReferences(note.raw)) {
       const ext = path.extname(target).toLowerCase()
 
@@ -655,7 +827,82 @@ async function main() {
       }
       if (!attachmentsToCopy.has(hit.relPath)) attachmentsToCopy.set(hit.relPath, [])
       attachmentsToCopy.get(hit.relPath).push(note.relPath)
+
+      if (!attachmentPlans.has(hit.relPath)) {
+        const plan = { ...attachmentPlan(hit.relPath), relPath: hit.relPath }
+        // Le poids d'un document est annoncé dans le lien : il se lit sur la
+        // source, la copie étant à l'octet près la même.
+        if (plan.kind === "doc") {
+          plan.size = (await stat(path.join(VAULT_PATH, hit.relPath))).size
+        }
+        attachmentPlans.set(hit.relPath, plan)
+      }
+      note.plans.set(target, attachmentPlans.get(hit.relPath))
     }
+  }
+
+  // Deux sources ne peuvent pas viser la même destination : `photo.png` et
+  // `photo.jpg` deviendraient tous deux `photo.webp`, et la seconde copie
+  // écraserait la première sans un mot. Le cas est rare et se règle dans le
+  // coffre ; en attendant, les deux gardent leur nom d'origine.
+  const collisions = []
+  const byDest = new Map()
+  for (const plan of attachmentPlans.values()) {
+    if (!byDest.has(plan.dest)) byDest.set(plan.dest, [])
+    byDest.get(plan.dest).push(plan)
+  }
+  for (const [dest, plans] of byDest) {
+    if (plans.length < 2) continue
+    collisions.push({ dest, sources: plans.map((p) => p.relPath) })
+    for (const plan of plans) {
+      plan.kind = "raw"
+      plan.dest = stripPublicRoot(plan.relPath)
+    }
+  }
+
+  // ---- 2b. Transformations, appliquées à la copie et jamais au coffre ----
+  // Encapsulation des vidéos : le contenu écrit dans `content/` diverge ici du
+  // coffre. En deux temps, car on n'encapsule que ce dont on a la vignette :
+  // il faut donc savoir avant de transformer.
+  const mediaWanted = new Set()
+  if (YOUTUBE_EMBED) for (const note of published) for (const k of scanMedia(note.raw)) mediaWanted.add(k)
+
+  const mediaAvailable = new Set()
+  const mediaDead = []
+  let thumbsShrunk = 0
+  for (const key of mediaWanted) {
+    const dest = path.join(CONTENT_DIR, thumbSlugFor(key))
+    // Déjà téléchargée : on ne redemande pas le réseau à chaque synchronisation.
+    if (existsSync(dest)) {
+      mediaAvailable.add(key)
+      if (!DRY_RUN && (await shrinkThumbnail(dest))) thumbsShrunk++
+      continue
+    }
+    // En simulation on ne télécharge rien ; l'aperçu se limite donc au cache.
+    if (DRY_RUN) continue
+    const id = key.slice(3)
+    const ok = key.startsWith("yt:")
+      ? await fetchThumbnail(id, dest)
+      : await fetchInstagramThumb(id, dest)
+    if (ok) {
+      mediaAvailable.add(key)
+      if (await shrinkThumbnail(dest)) thumbsShrunk++
+    } else mediaDead.push(key)
+  }
+
+  const thumbnails = new Map() // slug dans content/ -> clé du média
+  for (const note of published) {
+    const rewritten = rewriteAttachmentRefs(note.raw, note.dest, (t) => note.plans.get(t) ?? null)
+    const { text, thumbs } = embedYouTube(rewritten, note.dest, mediaAvailable)
+    note.output = text
+    for (const [slug, key] of thumbs) thumbnails.set(slug, key)
+  }
+
+  if (published.length === 0) {
+    console.log(c.yellow(`No notes carry \`publish: true\` — nothing to sync.`))
+    console.log(
+      c.dim(`Add \`publish: true\` to a note's frontmatter to publish it.\n`),
+    )
   }
 
   // ---- 3. Work out the exact desired state of content/ ------------------
@@ -665,7 +912,7 @@ async function main() {
   // dans l'URL des images, alors que les pages, elles, n'en portent pas.
   const desired = new Set([
     ...published.map((p) => p.dest),
-    ...[...attachmentsToCopy.keys()].map(stripPublicRoot),
+    ...[...attachmentsToCopy.keys()].map((relPath) => attachmentPlans.get(relPath).dest),
     ...thumbnails.keys(),
   ])
 
@@ -726,7 +973,8 @@ async function main() {
 
   let attachmentsWritten = 0
   for (const relPath of attachmentsToCopy.keys()) {
-    const dest = stripPublicRoot(relPath)
+    const plan = attachmentPlans.get(relPath)
+    const dest = plan.dest
     const label = dest === relPath ? relPath : `${relPath} -> ${dest}`
     if (DRY_RUN) {
       if (VERBOSE) console.log(c.green(`  + ${label}`))
@@ -735,6 +983,7 @@ async function main() {
     const changed = await copyIfChanged(
       path.join(VAULT_PATH, relPath),
       path.join(CONTENT_DIR, dest),
+      plan,
     )
     if (changed) {
       attachmentsWritten++
@@ -781,6 +1030,35 @@ async function main() {
         )
       }
     }
+  }
+  if (!DRY_RUN) {
+    const images = [...attachmentPlans.values()].filter((p) => p.kind === "image")
+    if (images.length) {
+      let from = 0
+      let to = 0
+      for (const p of images) {
+        from += (await stat(path.join(VAULT_PATH, p.relPath))).size
+        const d = path.join(CONTENT_DIR, p.dest)
+        if (existsSync(d)) to += (await stat(d)).size
+      }
+      console.log(
+        c.dim(`  ${images.length} image(s) ré-encodée(s) : ${humanSize(from)} -> ${humanSize(to)}`),
+      )
+    }
+    if (thumbsShrunk) console.log(c.dim(`  ${thumbsShrunk} vignette(s) allégée(s) sur place`))
+  }
+  const docs = [...attachmentPlans.values()].filter((p) => p.kind === "doc")
+  if (docs.length) {
+    console.log(c.dim(`  ${docs.length} document(s) lié(s) plutôt qu'incorporé(s), sous ${DOC_DIR}/`))
+  }
+  if (collisions.length) {
+    console.log(
+      c.yellow(`\n${collisions.length} collision(s) de nom après conversion — originaux conservés :`),
+    )
+    for (const col of collisions) {
+      console.log(c.dim(`  ${col.dest} <- ${col.sources.join(", ")}`))
+    }
+    console.log(c.dim(`  Renommez l'une des sources dans le coffre pour les alléger.`))
   }
   if (stale.length) console.log(c.dim(`  ${stale.length} file(s) removed`))
   if (homepageNote) {

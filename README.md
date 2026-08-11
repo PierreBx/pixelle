@@ -101,9 +101,28 @@ L'audit n'examine par défaut que les notes **modifiées depuis HEAD**, et affic
        doubt blog/Rouffignac.md — would publish a page with no content
 ```
 
-`✓` conforme · `?` doute · `▲` exposition · `✗` casse. Code de sortie 1 dès qu'il y a un `▲` ou un `✗`. `--all` pour un inventaire du corpus, `--built` pour ajouter les contrôles sur `public/`, `--quiet` pour ne voir que ce qui cloche.
+`✓` conforme · `?` doute · `▲` exposition · `✗` casse. Code de sortie 1 dès qu'il y a un `▲` ou un `✗`. `--all` pour un inventaire du corpus, `--built` pour ajouter les contrôles sur `public/`, `--since REF` pour comparer à un commit plutôt qu'à l'arbre de travail, `--quiet` pour ne voir que ce qui cloche.
 
 `--built` ajoute trois contrôles sur la sortie construite, dont la **résolution des liens internes** : un lien mort sur la page d'accueil y est une anomalie bloquante, puisque rien n'y est censé pointer dans le vide.
+
+Deux contrôles portent sur ce que la page fait charger, et ceux-là ignorent le périmètre du diff — le poids d'une page est un fait du site entier, pas d'une modification :
+
+- **poids des images** — doute au-delà de 500 Ko, casse au-delà de 2 Mo. Après synchronisation aucune image ne devrait en approcher : un dépassement signale une image passée à côté du ré-encodage.
+- **texte alternatif** — toute image incorporée sans alternative est une casse. Elle se corrige dans le coffre, en nommant l'alias de l'incorporation :
+
+  ```markdown
+  ![[2026-08-09-Marqueyssac.png|Les buis taillés en vagues, dominant la vallée]]
+  ```
+
+  Obsidian affiche cet alias comme légende, Quartz le rend en `alt`. Un alias purement numérique (`|300`, `|300x200`) désigne des dimensions, pas un texte : il ne compte pas.
+
+### L'audit tourne aussi en intégration continue
+
+Le workflow lance `audit.py --since HEAD^ --built` **après** la construction et **avant** le téléversement : un audit rouge n'envoie pas d'artefact, le déploiement ne part pas, et le site en ligne reste celui d'avant.
+
+`--since HEAD^` et non `--all` : le contrôle des clés de frontmatter mesure une *nouveauté*, ce qui n'a de sens que par rapport à un état antérieur. En local, l'état antérieur est HEAD et la nouveauté est ce que vous venez de synchroniser ; en CI, tout est déjà commité et `git status` ne montrerait jamais rien.
+
+Cela ne dispense pas de l'étape 3 : la CI constate, elle ne relit pas une page rendue.
 
 ## Confidentialité : le frontmatter est public
 
@@ -124,8 +143,31 @@ C'est du bruit **attendu** dans le rapport de sync — une note publiée cite so
 - Copie images, PDF, médias et fichiers `.base` **uniquement** s'ils sont référencés par une note publiée. Une pièce jointe non citée n'est jamais copiée. Les pièces jointes sont cherchées dans tout le coffre, y compris hors de `public/`.
 - Ne suit jamais un lien vers une note non publiée.
 - Remplace les liens YouTube et Instagram par une **vignette cliquable** (voir ci-dessous).
+- **Allège les images** et **délie les documents** (voir ci-dessous).
 - Retire les colonnes `publish`/`homepage` des vues de bases à la copie — utiles dans Obsidian, sans objet sur le site.
 - Supprime de `content/` tout ce qui n'est plus publié.
+
+### Images allégées, documents liés
+
+Le coffre garde ses originaux ; c'est la copie vers `content/` qui est allégée. Deux mesures, parce que deux poids :
+
+| | Ce qui part avec la page | Traitement |
+| --- | --- | --- |
+| **Image** | toujours, demandée ou non | ré-encodée en WebP, plus grand côté ramené à 1600 px |
+| **Document** (PDF) | seulement si le lecteur clique | déplacé sous `_assets/docs/`, et **lié** au lieu d'être incorporé |
+
+`![[programme.pdf]]` fait rendre à Quartz un cadre qui télécharge le fichier entier au chargement de la page. La synchronisation le remplace par un lien qui annonce ce qu'il coûte — `[Programme de salle — PDF, 1,3 Mo]` — et le fichier ne part qu'au clic.
+
+C'est **le plus grand côté** qui est borné, pas la largeur : une photo en hauteur de 1600×2133 respecte n'importe quelle limite de largeur tout en pesant trois mégapixels. C'est la surface qui fait le poids.
+
+Deux détails qui ont leur raison d'être :
+
+- l'orientation EXIF est appliquée avant l'encodage. Sans cela une photo prise au téléphone ressort couchée, sharp retirant les métadonnées ;
+- les vignettes de vidéos, elles, gardent leur extension `.jpg` et sont ré-encodées en JPEG sur place. Leur nom sert de cache de téléchargement : le changer forcerait à re-télécharger quatre-vingts vignettes d'un coup, ce qu'Instagram — scrapé, pas interrogé par une API — a toutes les raisons de refuser.
+
+Si deux images du coffre portent le même nom à l'extension près (`photo.png` et `photo.jpg`), elles viseraient le même `photo.webp` : la synchronisation le détecte, les laisse toutes deux sous leur nom d'origine et le signale. Renommez-en une dans le coffre.
+
+`OPTIMISE_IMAGES=0` rétablit la copie brute, pour comparer.
 
 ### Vignettes : aucune requête tierce avant le clic
 
@@ -206,6 +248,9 @@ Variables d'environnement :
 VAULT_PATH=/autre/coffre npm run sync   # chemin du coffre
 PUBLIC_ROOT= npm run sync               # parcourir tout le coffre
 YOUTUBE_EMBED=0 npm run sync            # laisser les liens nus (YouTube *et* Instagram)
+OPTIMISE_IMAGES=0 npm run sync          # copier les images telles quelles
+IMAGE_MAX_SIDE=2000 npm run sync        # plus grand côté servi (défaut 1600)
+IMAGE_QUALITY=90 npm run sync           # qualité WebP (défaut 80)
 ```
 
 ## Le workflow, étape par étape

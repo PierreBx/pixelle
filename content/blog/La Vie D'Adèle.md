@@ -11,4 +11,4 @@ category:
 tags:
   - movie
 ---
-![[IMG_4776.webp]]
+![[IMG_4776.webp|Affiche du film : Adèle Exarchopoulos et Léa Seydoux riant, sous la Palme d’or]]

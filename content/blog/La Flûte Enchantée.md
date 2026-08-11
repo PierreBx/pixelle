@@ -18,4 +18,4 @@ Véritable opéra féerique, La Flûte enchantée joue sans cesse sur l’altern
   <span class="yt-play" aria-hidden="true">▶</span>
 </div>
 
-![[CALA_LaFluteEnchantee_2026_2.pdf]]
+[Programme de salle — PDF, 10,8 Mo](../_assets/docs/CALA_LaFluteEnchantee_2026_2.pdf)

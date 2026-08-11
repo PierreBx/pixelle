@@ -93,6 +93,35 @@ La CI (`.github/workflows/deploy.yml`) se déclenche sur push vers `main` et lan
 reflète donc exactement le `content/` **commité**. Synchroniser sans commiter ne publie
 rien.
 
+Elle enchaîne ensuite `audit.py --since HEAD^ --built`, avant le téléversement : un
+audit rouge n'envoie pas d'artefact et le site en ligne reste celui d'avant. Les
+garde-fous ne dépendent donc plus de la bonne volonté de celui qui commite. Ce n'est
+pas une raison de sauter l'étape 3 : la CI constate, elle ne regarde pas une page.
+
+## Pièces jointes : allégées à la copie
+
+`content/` ne reçoit pas les originaux du coffre.
+
+- **Images** — ré-encodées en WebP, plus grand côté ramené à 1600 px. C'est le plus
+  grand côté et non la largeur : une photo en hauteur respecte une limite de largeur
+  tout en pesant trois mégapixels. L'orientation EXIF est appliquée avant l'encodage,
+  sinon les photos de téléphone ressortent couchées.
+- **PDF** — déplacés sous `_assets/docs/` et **liés** au lieu d'être incorporés.
+  `![[x.pdf]]` fait rendre à Quartz un cadre qui télécharge tout au chargement de la
+  page ; le lien produit annonce le poids et ne part qu'au clic.
+- **Vignettes de vidéos** — ré-encodées en JPEG *sur place*, sans changer de nom : leur
+  nom sert de cache de téléchargement, et le changer relancerait quatre-vingts requêtes
+  vers Instagram d'un coup.
+
+Les notes sont réécrites en conséquence **dans la copie seulement** (`![[x.png]]` →
+`![[x.webp]]`). Cette réécriture tourne **avant** l'encapsulation des vidéos, qui
+produit du HTML dont les `<img src>` ne doivent surtout pas y passer.
+
+Conséquence pour le texte alternatif : il s'écrit dans l'alias de l'incorporation,
+`![[image.png|description]]`. Obsidian l'affiche en légende, Quartz le rend en `alt`,
+et l'audit refuse désormais une image qui en manque. Un alias purement numérique
+(`|300`) désigne des dimensions, pas un texte.
+
 ## Ce que Quartz ne sait pas rendre
 
 Ces blocs Obsidian n'ont **aucun** équivalent côté Quartz et s'affichent en **bloc de

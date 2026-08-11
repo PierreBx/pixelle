@@ -8,7 +8,7 @@ created: 2026-05-20
 modified: 2026-05-20
 ---
 
-![[2026-05-20-Jakub Josef Orlinski - If Music.png]]
+![[2026-05-20-Jakub Josef Orlinski - If Music.webp|Portrait en noir et blanc de Jakub Józef Orliński, de profil]]
 
 ## À Propos
 
@@ -51,4 +51,4 @@ _Mów do mnie jeszcze_
 _Rdzawe liście_
 _Czasem gdy długo_
 
-![[2026-05-20-Jakub Josef Orlinski.pdf]]
+[Programme de salle — PDF, 1,1 Mo](../_assets/docs/2026-05-20-Jakub%20Josef%20Orlinski.pdf)
