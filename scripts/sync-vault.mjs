@@ -529,7 +529,26 @@ function rewriteAttachmentRefs(raw, dest, planFor) {
     return `${bang}[${label}](${encodeURI(prefix + plan.dest)})`
   })
 
-  return frontmatter === null ? out : `---\n${frontmatter}\n---\n${out}`
+  // Le frontmatter cite lui aussi des pièces jointes (`banner: "[[x.jpeg]]"`).
+  // Seul le changement d'extension s'y applique : transformer une
+  // incorporation en lien markdown n'aurait aucun sens dans une valeur YAML.
+  // La substitution est purement textuelle, à l'intérieur du `[[...]]` : elle
+  // ne touche donc ni la structure ni les guillemets du document.
+  const head =
+    frontmatter === null
+      ? null
+      : frontmatter.replace(/\[\[([^\]]+?)\]\]/g, (all, inner) => {
+          const parts = inner.split("|")
+          const target = parts[0].trim()
+          const plan = planFor(target)
+          if (plan?.kind !== "image") return all
+          const renamed = swapExt(target, ".webp")
+          if (renamed === target) return all
+          parts[0] = renamed
+          return `[[${parts.join("|")}]]`
+        })
+
+  return head === null ? out : `---\n${head}\n---\n${out}`
 }
 
 /** Recursively list every file in the vault, minus ignored directories. */
