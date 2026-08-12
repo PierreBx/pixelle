@@ -426,6 +426,13 @@ def audit_content(rep, scope_all):
         for tag in re.findall(r"<img\b[^>]*>", body):
             if "_assets" not in tag:
                 continue
+            # Les vignettes de vidéos sont **décoratives** : leur `alt` est vide
+            # exprès, parce que le bouton qui les entoure porte déjà un
+            # `aria-label` (« Lire la vidéo : … »). Le lecteur d'écran doit
+            # annoncer l'action une fois, pas deux. Ce sont d'ailleurs des
+            # images engendrées, pas des images écrites par l'auteur.
+            if re.search(r'src="[^"]*_assets/images/(?:youtube|instagram)/', tag):
+                continue
             embeds += 1
             alt = re.search(r'\balt\s*=\s*"([^"]*)"', tag)
             if not alt or not alt.group(1).strip():

@@ -1,11 +1,9 @@
 ---
 title: This 10-second passage will FIX YOUR TECHNIQUE
 source: https://m.youtube.com/watch?v=HXNGNTbZjh0
-author:
 created: 2026-04-14
-description: "Download the Learning Guide:https://shop.manuelcasares.com/products/learning-guide-rach-3s-magic-passageIn this video, we discover how a surprisingly easy Rach 3 passage can help us fix a pianist's worst technique issue: LAZY THUMBS.0:00 Your #1 Technical Problem1:33 How can this passage be EASY?3:52 How to FIX your #1 Technical Problem6:15 How to make the passage SOUND GOOD7:49 Final Pro Tips"
+description: Un passage facile du 3e concerto de Rachmaninov, pris comme exercice contre le pouce paresseux.
 modified: 2026-04-15
-category:
 publish: true
 tags: [music/piano]
 ---

@@ -235,7 +235,26 @@ Piège vérifié : les adresses doivent être slugifiées **par la synchronisati
 pointent vers des fichiers inexistants, et seuls les petits écrans en souffrent.
 
 Conséquence pour l'audit : le texte alternatif se contrôle désormais sur l'attribut `alt`
-des `<img>`, pas seulement sur l'alias des incorporations restantes.
+des `<img>`, pas seulement sur l'alias des incorporations restantes. Les vignettes de
+vidéos en sont exclues — leur `alt` est vide **exprès**, le bouton qui les entoure portant
+déjà un `aria-label` ; les annoncer deux fois desservirait un lecteur d'écran.
+
+## Où vit quoi, dans `scripts/`
+
+| fichier | rôle |
+| --- | --- |
+| `sync-vault.mjs` | l'enchaînement : décider, résoudre, transformer, écrire, rapporter |
+| `notes.mjs` | lire une note — frontmatter, drapeaux, références |
+| `media.mjs` | YouTube et Instagram : identifiants, vignettes, façades |
+| `places.mjs` | hiérarchie des lieux et étiquette déduite |
+| `maps.mjs` | rendu SVG des cartes |
+| `term.mjs` | couleurs de terminal |
+| `check-links.mjs` | veille des liens externes (lit `public/`) |
+| `preview.mjs` | serveur d'aperçu |
+
+`main()` reste long, et c'est assumé : c'est un tuyau dont les étapes se passent une
+vingtaine de variables. Les découper obligerait à les enfiler une à une, pour une lisibilité
+qui n'y gagnerait rien. Ce qui pouvait sortir sans dépendre du reste en est sorti.
 
 ## Confidentialité : `note-properties` affiche tout
 
