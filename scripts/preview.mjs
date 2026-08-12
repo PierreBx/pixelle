@@ -76,7 +76,18 @@ function resolveFile(urlPath) {
 }
 
 const server = http.createServer((req, res) => {
-  const file = resolveFile(new URL(req.url, "http://localhost").pathname)
+  // `new URL("//", base)` lève : `//` est une URL protocol-relative sans hôte.
+  // Sans ce filet, une seule requête malformée — un lien coquillé, un scanner —
+  // tuait le serveur d'aperçu au milieu d'une relecture.
+  let pathname
+  try {
+    pathname = new URL(req.url, "http://localhost").pathname
+  } catch {
+    res.writeHead(400, { "Content-Type": "text/plain; charset=utf-8" })
+    res.end("400 — adresse illisible")
+    return
+  }
+  const file = resolveFile(pathname)
   if (!file) {
     const notFound = path.join(ROOT, "404.html")
     res.writeHead(404, { "Content-Type": TYPES[".html"] })

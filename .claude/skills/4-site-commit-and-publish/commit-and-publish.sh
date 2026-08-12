@@ -79,17 +79,30 @@ PY
 # Checksum of a page, dropping only what legitimately differs between two builds
 # of the same commit — measured on real deploys, not assumed.
 #
-# The CI runs in UTC and this machine does not, so the *rendered* date can land
-# on another day: 22:05Z showed as "09 août" there and "10 août" here. That text
-# goes. The `datetime` attribute stays: it is the same instant on both sides, and
-# it is what changes when a note's date genuinely changes — stripping the whole
-# element once made a date-only commit unverifiable.
+# The *rendered* date can land on another day between two machines — 22:05Z shows
+# as "09 août" in UTC and "10 août" here — so that text goes.
+#
+# The `datetime` attribute stays. It was once believed to be "the same instant on
+# both sides"; it is not. A date-only frontmatter value (`created: 2026-08-11`)
+# is read as **local midnight**, which is 2026-08-10T22:00Z here and
+# 2026-08-11T00:00Z on the runner: same day for a reader, two instants two hours
+# apart in the markup. Every dated page differed, and the deploy could never be
+# verified.
+#
+# The fix is upstream, not here: `npm run build` pins `TZ=UTC`, so this machine
+# renders exactly what the runner renders. The attribute can then stay in the
+# checksum — and it must, since it is what changes when a note's date genuinely
+# changes, and stripping the whole element once made a date-only commit
+# unverifiable.
 fingerprint() { sed 's|\(<time[^>]*>\)[^<]*</time>|\1</time>|g' | md5sum | cut -d' ' -f1; }
 
-# Pages embedding a base cannot be compared at all: the base sorts on
-# `file.ctime`, which on the runner is the git checkout time rather than the
-# note's date, so the whole table comes out in a different order.
-comparable() { ! grep -q 'bases-inline' "$1"; }
+# Pages embedding a base used to be incomparable: the base sorted on
+# `file.ctime`, which on the runner is the checkout time rather than the note's
+# date, so the table came out in a different order. The bases now sort on
+# `created`, an ISO string identical everywhere, and the date column is gone —
+# so these pages are comparable, and they are the ones worth comparing: the
+# accueil, le journal and les trouvailles are exactly where a stale deploy shows.
+comparable() { :; }
 
 bold "commit and publish pixelle"
 [ "$DRY" -eq 1 ] && warn "dry-run" "nothing will be written, committed or pushed"
