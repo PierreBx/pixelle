@@ -97,8 +97,17 @@ plugins:
   - source: "@quartz-community/description"
     enabled: true
     order: 70
+  # Désactivé, et c'est le contraire d'un détail. Ce greffon chargeait KaTeX
+  # depuis cdn.jsdelivr.net — une feuille de style **et** un script — sur
+  # chacune des 384 pages du site. Aucune note ne contient de LaTeX : le
+  # navigateur de chaque visiteur s'annonçait donc à un CDN tiers pour une
+  # fonction inutilisée, sur un site qui rapatrie ses polices et encapsule ses
+  # vidéos précisément pour éviter cela.
+  #
+  # À réactiver si une note vient à porter des formules — en servant alors KaTeX
+  # depuis le site, jamais depuis un CDN.
   - source: "@quartz-community/latex"
-    enabled: true
+    enabled: false
     options:
       renderEngine: katex
     order: 80

@@ -674,6 +674,18 @@ def audit_bases(rep):
 
 RELATIVE_HREF = re.compile(r'<a[^>]+href="((?:\./|\.\./)[^"#?]+)"')
 
+# Ressources chargées par le navigateur sans que le visiteur ait rien demandé.
+# Un `<a href>` vers l'extérieur n'en fait pas partie : c'est un lien, il attend
+# un clic. Tout le reste — script, feuille de style, image, cadre, police,
+# `preconnect` — part à l'ouverture de la page et livre l'adresse IP du lecteur
+# à qui la sert.
+LOADED_RESOURCE = re.compile(
+    r"""<(?:script|img|iframe|video|audio|source|embed|object)\b[^>]*?\b(?:src|data)\s*=\s*["'](https?://[^"']+)["']"""
+    r"""|<link\b[^>]*?\bhref\s*=\s*["'](https?://[^"']+)["']"""
+    r"""|@import\s+(?:url\()?["'](https?://[^"']+)["']""",
+    re.I,
+)
+
 
 def resolves(page, href):
     """Does a relative href from `page` land on something Quartz emitted?"""
@@ -687,8 +699,18 @@ def resolves(page, href):
     )
 
 
+def site_host():
+    """Hôte du site, lu dans `baseUrl` — le seul qui ne soit pas un tiers."""
+    try:
+        cfg = yaml.safe_load(open("quartz.config.yaml", encoding="utf8"))
+        return str(cfg["configuration"]["baseUrl"]).split("/")[0].lower()
+    except Exception:
+        return ""
+
+
 def audit_built(rep):
     S = "built output"
+    SITE_HOST = site_host()
     pages = sorted(glob.glob("public/**/*.html", recursive=True))
     if not pages:
         rep.check(S, "public/ present").add(
@@ -699,6 +721,8 @@ def audit_built(rep):
     c_raw = rep.check(S, "unrendered blocks")
     c_base = rep.check(S, "bases populated")
     c_link = rep.check(S, "internal links resolve")
+    c_third = rep.check(S, "aucune requête tierce")
+    third = {}  # hôte -> pages
 
     embeds, empty = 0, []
     total_links = 0
@@ -712,6 +736,13 @@ def audit_built(rep):
         for tag in UNRENDERED:
             if f'data-language="{tag}"' in s:
                 c_raw.add("broken", f"{rel} — `{tag}` block in the published HTML")
+
+        for groups in LOADED_RESOURCE.findall(s):
+            url = next(u for u in groups if u)
+            host = urllib.parse.urlparse(url).netloc.lower()
+            if not host or host == SITE_HOST:
+                continue
+            third.setdefault(host, []).append(rel)
 
         for href in RELATIVE_HREF.findall(s):
             total_links += 1
@@ -728,6 +759,22 @@ def audit_built(rep):
         for meta in re.findall(r'class="bases-view-meta"[^>]*>([^<]*)<', s):
             if re.match(r"^Showing 0 of 0\b", html.unescape(meta).strip()):
                 empty.append(rel)
+
+    # `analytics: null`, les polices rapatriées à la construction et les
+    # vignettes vidéo bâties pour ne rien contacter avant le clic ne valent que
+    # tant que rien ne les contredit ailleurs. Le greffon `latex` chargeait KaTeX
+    # depuis un CDN sur les 384 pages, sans qu'aucune note n'en ait besoin :
+    # personne ne l'a vu pendant des mois. D'où ce contrôle.
+    c_third.verdict = f"{plural(len(pages), 'page inspected', 'pages inspected')} — " + (
+        "aucune ressource extérieure" if not third else f"{plural(len(third), 'hôte tiers', 'hôtes tiers')}"
+    )
+    for host, where in sorted(third.items(), key=lambda kv: -len(kv[1])):
+        c_third.add(
+            "broken",
+            f"`{host}` chargé par {plural(len(where), 'page')} — p. ex. {where[0]}. "
+            f"Le site promet de ne contacter personne : servir la ressource "
+            f"depuis le site, ou s'en passer.",
+        )
 
     c_raw.verdict = f"{plural(len(pages), 'page inspected', 'pages inspected')} — " + (
         plural(len(c_raw.entries), "raw block") if c_raw.entries else "output clean"

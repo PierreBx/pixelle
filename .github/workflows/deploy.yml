@@ -45,6 +45,12 @@ jobs:
       - name: Install Quartz plugins
         run: npx quartz plugin install --from-config
 
+      # Avant de construire : ces tests gardent le code qui **supprime** des
+      # fichiers de content/. Les faire dépendre de la mémoire de celui qui
+      # commite était le dernier garde-fou resté facultatif.
+      - name: Run tests
+        run: npm test
+
       # Builds from the committed content/ only. The vault is not present on
       # the runner, so sync deliberately does not run here.
       - name: Build site

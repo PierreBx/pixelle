@@ -298,6 +298,16 @@ Tout est dans `quartz.config.yaml` :
 - `baseUrl` — **doit** correspondre à l'URL réelle, sans protocole ni slash final. Sinon RSS, sitemap et images OpenGraph pointent à côté.
 - `locale` — `fr-FR`.
 - `analytics: null` — aucun traceur tiers, volontairement.
+
+### Aucune requête tierce, et un contrôle qui le vérifie
+
+Le site ne fait charger au navigateur **aucune ressource extérieure** : pas de traceur, les polices rapatriées à la construction, les vidéos derrière une vignette qui ne contacte YouTube ou Instagram qu'au clic.
+
+Cette promesse a été fausse pendant des mois sans que personne le voie : le greffon `latex`, actif par défaut, chargeait KaTeX depuis `cdn.jsdelivr.net` — une feuille de style et un script — sur les 384 pages, alors qu'aucune note ne contient de formule. Quartz ouvrait en plus un `preconnect` vers Cloudflare.
+
+D'où le contrôle **« aucune requête tierce »** de l'audit, qui lit la sortie construite et échoue sur tout `script`, `link`, `img`, `iframe`, `video` ou `@import` visant un autre hôte que `baseUrl`. Un `<a href>` vers l'extérieur n'est pas concerné : c'est un lien, il attend un clic.
+
+Le prochain greffon activé ne pourra donc plus rouvrir la brèche en silence.
 - `excludedProperties` — les clés de frontmatter masquées sur le site.
 
 La palette « bleu nuit » a été mesurée au contraste WCAG (≥ 4.5:1 dans les deux modes) : conservez les ratios notés en commentaire si vous y touchez.
@@ -355,13 +365,13 @@ Reportez les changements de `quartz/`, `package.json` et `quartz.config.default.
 
 ### Modifications locales à reporter
 
-Le code de Quartz est modifié à **deux** endroits, chacun signalé par un commentaire `LOCAL MODIFICATION`. Vérifiez qu'ils sont toujours là après une mise à jour :
+Le code de Quartz est modifié à **trois** endroits, chacun signalé par un commentaire `LOCAL MODIFICATION`. Vérifiez qu'ils sont toujours là après une mise à jour :
 
 ```bash
 grep -rn "LOCAL MODIFICATION" quartz/
 ```
 
-**`quartz/components/Head.tsx`** — force le mode sombre par défaut, ce que le plugin `darkmode` ne sait pas configurer. Sans lui, un visiteur dont le système demande le mode clair verrait le site en clair.
+**`quartz/components/Head.tsx`** — deux ajouts. Le premier force le mode sombre par défaut, ce que le plugin `darkmode` ne sait pas configurer. Le second **retire** le `preconnect` vers `cdnjs.cloudflare.com` que Quartz ouvrait sur chaque page : un preconnect est une résolution DNS et une poignée de main TLS, donc l'adresse IP du visiteur remise à Cloudflare à chaque visite — et pour rien, ce site ne chargeant rien de cdnjs.
 
 **`quartz/plugins/pageTypes/dispatcher.ts`** — déliste les pages engendrées sous `_assets/`.
 

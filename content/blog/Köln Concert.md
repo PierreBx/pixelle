@@ -17,4 +17,4 @@ Production de la Philharmonie de Paris.
 
 [Programme de salle — PDF, 1,3 Mo](../_assets/docs/CALAA5_TheKolnConcerte8pp20260409.pdf)
 
-<iframe src="https://www.facebook.com/plugins/video.php?height=476&href=https%3A%2F%2Fwww.facebook.com%2Freel%2F1485939746539012%2F&show_text=false&width=267&t=0" width="267" height="476" style="border:none;overflow:hidden" scrolling="no" frameborder="0" allowfullscreen="true" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share" allowFullScreen="true"></iframe>
+[Voir le reel sur Facebook](https://www.facebook.com/reel/1485939746539012/)

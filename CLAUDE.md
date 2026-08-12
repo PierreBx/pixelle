@@ -273,5 +273,10 @@ le coffre plutôt que d'en inventer une.
 - La palette « bleu nuit » a été mesurée au contraste WCAG (≥ 4.5:1 dans les deux modes) :
   conserver les ratios notés en commentaire si on y touche.
 - Pas d'analytics : `analytics: null`, volontairement.
+- **Aucune requête tierce**, et l'audit le vérifie sur la sortie construite
+  (« aucune requête tierce », `--built`). Le greffon `latex` chargeait KaTeX depuis
+  un CDN sur les 384 pages sans qu'aucune note n'en ait besoin : il est désactivé,
+  et le `preconnect` de `Head.tsx` retiré. Avant d'activer un greffon, vérifier ce
+  qu'il fait charger — le contrôle échouera, mais autant le savoir avant.
 - `baseUrl` doit correspondre à l'hébergement réel, sinon RSS, sitemap et images OG
   pointent au mauvais endroit.

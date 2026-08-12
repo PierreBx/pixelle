@@ -57,7 +57,12 @@ export default (() => {
             )}
           </>
         )}
-        <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossOrigin="anonymous" />
+        {/* LOCAL MODIFICATION — voir README, « Modifications locales à reporter ».
+            Quartz ouvrait ici un `preconnect` vers cdnjs.cloudflare.com sur chaque
+            page. Un preconnect n'est pas anodin : c'est une résolution DNS et une
+            poignée de main TLS, donc l'adresse IP du visiteur remise à Cloudflare,
+            à chaque visite — et pour rien, ce site ne chargeant rien de cdnjs.
+            Retiré, comme les polices Google et les iframes YouTube l'ont été. */}
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
         <meta name="og:site_name" content={cfg.pageTitle}></meta>
