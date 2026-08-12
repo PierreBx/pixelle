@@ -192,6 +192,23 @@ export const PageTypeDispatcher: QuartzEmitterPlugin<Partial<DispatcherOptions>>
             relativePath: vpRelativePath,
             frontmatter: { title: vp.title, tags: [] },
             ...vp.data,
+            // LOCAL MODIFICATION — voir README, « Modifications locales à reporter ».
+            //
+            // `bases-page` engendre une page autonome par fichier `.base`. Elles
+            // n'ont aucun intérêt pour un lecteur — un tableau sans titre ni
+            // contexte — et se retrouvaient pourtant dans l'explorateur, le
+            // sitemap, le flux RSS et la recherche, sous des noms de plomberie
+            // (« blogEntriesBase »).
+            //
+            // Les délister ici est le seul point qui tienne : ces pages ne
+            // passent pas par les transformateurs (elles naissent à l'émission),
+            // et `unlisted: true` dans le fichier `.base` resterait sans effet,
+            // le greffon fabriquant lui-même leur frontmatter. Placé après
+            // `...vp.data` pour l'emporter sur lui.
+            //
+            // Elles restent servies à leur URL ; seules les listes les ignorent.
+            // Les tableaux incorporés dans les notes ne sont pas concernés.
+            ...(vpSlug.startsWith("_assets/") ? { unlisted: true } : {}),
           })
           if (vpSlug !== "404") {
             ctx.virtualPages.push([tree, vfile])
@@ -286,6 +303,23 @@ export const PageTypeDispatcher: QuartzEmitterPlugin<Partial<DispatcherOptions>>
             relativePath: vpRelativePath,
             frontmatter: { title: vp.title, tags: [] },
             ...vp.data,
+            // LOCAL MODIFICATION — voir README, « Modifications locales à reporter ».
+            //
+            // `bases-page` engendre une page autonome par fichier `.base`. Elles
+            // n'ont aucun intérêt pour un lecteur — un tableau sans titre ni
+            // contexte — et se retrouvaient pourtant dans l'explorateur, le
+            // sitemap, le flux RSS et la recherche, sous des noms de plomberie
+            // (« blogEntriesBase »).
+            //
+            // Les délister ici est le seul point qui tienne : ces pages ne
+            // passent pas par les transformateurs (elles naissent à l'émission),
+            // et `unlisted: true` dans le fichier `.base` resterait sans effet,
+            // le greffon fabriquant lui-même leur frontmatter. Placé après
+            // `...vp.data` pour l'emporter sur lui.
+            //
+            // Elles restent servies à leur URL ; seules les listes les ignorent.
+            // Les tableaux incorporés dans les notes ne sont pas concernés.
+            ...(vpSlug.startsWith("_assets/") ? { unlisted: true } : {}),
           })
           if (vpSlug !== "404") {
             ctx.virtualPages.push([tree, vfile])

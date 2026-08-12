@@ -305,12 +305,23 @@ diff -ru /tmp/quartz-new/quartz ./quartz | less
 
 Reportez les changements de `quartz/`, `package.json` et `quartz.config.default.yaml`. Ne perdez pas les réglages de `quartz.config.yaml`, notamment `explicit-publish: enabled: true`.
 
-### Modification locale à reporter
+### Modifications locales à reporter
 
-`quartz/components/Head.tsx` contient un ajout signalé par un commentaire `LOCAL MODIFICATION`. Il force le mode sombre par défaut, ce que le plugin `darkmode` ne sait pas configurer. Sans lui, un visiteur dont le système demande le mode clair verrait le site en clair.
-
-C'est le seul endroit où le code de Quartz est modifié. Vérifiez qu'il est toujours là après une mise à jour :
+Le code de Quartz est modifié à **deux** endroits, chacun signalé par un commentaire `LOCAL MODIFICATION`. Vérifiez qu'ils sont toujours là après une mise à jour :
 
 ```bash
-grep -n "LOCAL MODIFICATION" quartz/components/Head.tsx
+grep -rn "LOCAL MODIFICATION" quartz/
 ```
+
+**`quartz/components/Head.tsx`** — force le mode sombre par défaut, ce que le plugin `darkmode` ne sait pas configurer. Sans lui, un visiteur dont le système demande le mode clair verrait le site en clair.
+
+**`quartz/plugins/pageTypes/dispatcher.ts`** — déliste les pages engendrées sous `_assets/`.
+
+Le greffon `bases-page` fabrique une page autonome par fichier `.base`, en plus des tableaux incorporés dans les notes. Ces cinq pages n'ont aucun intérêt pour un lecteur — un tableau sans titre ni contexte — et se retrouvaient pourtant dans l'explorateur, dans `sitemap.xml`, dans le flux RSS et dans la recherche, sous des noms de plomberie (« blogEntriesBase »). Elles apparaissaient même en « Liens retour » au bas de chaque billet.
+
+Les deux correctifs qu'on essaie d'abord ne marchent pas :
+
+- `ignorePatterns: _assets` empêcherait de lire les fichiers `.base`, donc casserait les tableaux incorporés ;
+- `unlisted: true` dans le fichier `.base` reste sans effet : le greffon fabrique lui-même le frontmatter de ces pages et ignore les clés du fichier.
+
+Ces pages naissent à l'**émission**, après les transformateurs : le seul point où les marquer est leur construction. Le drapeau `unlisted` est ensuite respecté par `content-index` (donc le sitemap, le flux et `contentIndex.json`, dont dépendent la recherche et l'explorateur) et par `backlinks`. Les pages restent servies à leur URL ; seules les listes les ignorent.
