@@ -316,10 +316,11 @@ def audit_content(rep, scope_all):
     c_self = rep.check(S, "frontmatter links")
     c_date = rep.check(S, "usable dates")
     c_alt = rep.check(S, "texte alternatif")
+    c_desc = rep.check(S, "trouvailles décrites")
     c_keys = rep.check(S, "publicly exposed keys")
 
     if not changed:
-        for c in (c_parse, c_flag, c_body, c_block, c_self, c_date, c_alt, c_keys):
+        for c in (c_parse, c_flag, c_body, c_block, c_self, c_date, c_alt, c_desc, c_keys):
             c.verdict = "not applicable"
         audit_assets(rep)
         audit_bases(rep)
@@ -343,13 +344,20 @@ def audit_content(rep, scope_all):
     for f in every:
         if f not in changed_set:
             absorb(os.path.relpath(f, "content"), frontmatter(read(f))[0])
+    # Notes déjà publiées au point de comparaison. Sert à distinguer une note
+    # neuve d'une note retouchée : on exige d'une nouveauté ce qu'on se contente
+    # de signaler sur l'existant.
+    already_published = set()
     for f in changed:
         committed = show_head(f)
         if committed is not None:
+            already_published.add(f)
             absorb(os.path.relpath(f, "content"), frontmatter(committed)[0])
 
     n = len(changed)
     stubs = links = dates = embeds = 0
+    posts_seen = 0
+    descriptions_missing = []
     assets = content_assets()
 
     for f in changed:
@@ -398,6 +406,27 @@ def audit_content(rep, scope_all):
                     f"{rel} — `{target}` part sans alternative : rien à lire "
                     f"pour qui ne voit pas l'image. Dans le coffre : "
                     f"`![[{target}|description]]`",
+                )
+
+        # Une trouvaille est un lien : sans description, la page n'est qu'une
+        # vignette, et rien n'y dit pourquoi le lien a été gardé. On l'exige
+        # d'un lien qui arrive, on le signale sur un lien déjà en ligne — sans
+        # quoi retoucher une vieille note pour une virgule bloquerait la CI.
+        if folder == "posts":
+            posts_seen += 1
+        if folder == "posts" and not str(fm.get("description") or "").strip():
+            descriptions_missing.append(rel)
+            if f in already_published:
+                c_desc.add(
+                    "doubt",
+                    f"{rel} — publiée sans description ; la vignette ne dit pas "
+                    f"pourquoi le lien vaut d'être gardé",
+                )
+            else:
+                c_desc.add(
+                    "broken",
+                    f"{rel} — nouveau lien sans `description` : une phrase dans "
+                    f"le coffre, et le signet devient une recommandation",
                 )
 
         for k, v in fm.items():
@@ -460,6 +489,8 @@ def audit_content(rep, scope_all):
             "all usable", lambda k: plural(k, "invalid"))
     verdict(c_alt, plural(embeds, "image incorporée", "images incorporées"),
             "toutes décrites", lambda k: plural(k, "sans alternative"))
+    verdict(c_desc, plural(posts_seen, "trouvaille examinée", "trouvailles examinées"),
+            "toutes décrites", lambda k: plural(k, "sans description", "sans description"))
 
     if scope_all:
         audit_keys_corpus(rep, c_keys, every, excl)

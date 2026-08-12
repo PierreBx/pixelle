@@ -68,7 +68,15 @@ npm run preview     # sync + build de production + aperçu sur http://localhost:
 npm run serve       # serveur de dév Quartz — actifs non hachés, à éviter
 npm run build       # sync + build
 npm run build:ci    # build seul, sans sync — ce que lance la CI
+npm test            # tests de la synchronisation
+npm run links       # cherche les liens externes morts (après un build)
 ```
+
+### Les tests
+
+`npm test` lance la suite de `scripts/sync-vault.test.mjs`. Elle vise en priorité les cas où une régression **détruit du travail** — racine introuvable, zéro note publiée, dépublication, collision de noms — plutôt que le chemin heureux. Chaque test se donne un coffre jetable et lance le vrai script dans un processus séparé, si bien que c'est son comportement de bout en bout qui est vérifié.
+
+`CONTENT_DIR` n'existe que pour cela : le script supprime ce qu'il ne reconnaît pas, et une suite de tests qui viserait le vrai `content/` le viderait à la première exécution.
 
 Pour publier, un script fait l'enchaînement complet :
 
@@ -115,6 +123,23 @@ Deux contrôles portent sur ce que la page fait charger, et ceux-là ignorent le
   ```
 
   Obsidian affiche cet alias comme légende, Quartz le rend en `alt`. Un alias purement numérique (`|300`, `|300x200`) désigne des dimensions, pas un texte : il ne compte pas.
+- **trouvailles décrites** — une note de `posts/` est un lien ; sans `description`, sa page n'est qu'une vignette et rien n'y dit pourquoi le lien a été gardé. Le contrôle distingue les deux situations : un lien **qui arrive** sans description est une casse, un lien **déjà en ligne** n'est qu'un doute. Sans cette nuance, retoucher une vieille note pour une virgule ferait échouer la CI.
+
+### La veille des liens morts
+
+```bash
+npm run build:ci && npm run links
+```
+
+Le site cite des dizaines de vidéos et de pages tierces ; quand l'une disparaît, la vignette reste et le lien ne mène plus nulle part. Un travail planifié (`.github/workflows/link-check.yml`) passe chaque lundi et ouvre un ticket s'il trouve quelque chose.
+
+Le vérificateur lit le site **construit**, pas les notes. Une URL nue collée dans une note n'a pas de fin évidente — le corpus en contient qui se terminent par un emoji, ou soudées au mot suivant, parce qu'une description de vidéo a été copiée telle quelle. Deviner leur limite dans le markdown reviendrait à inventer des liens morts ; dans le HTML, ce qui est dans un `href` est exactement ce qu'un lecteur peut cliquer.
+
+Il ne prétend pas tout savoir :
+
+- **YouTube** est fiable — la vignette répond 404 quand la vidéo est supprimée ou privée, le même test que fait la synchronisation.
+- **Instagram** n'est pas vérifiable depuis un runner : Meta bloque. Ces liens sont comptés, jamais jugés.
+- **Le reste** n'est déclaré mort que sur un 404 ou un 410. Un 403, un 429 ou un délai dépassé sont les réponses qu'on donne à un robot, pas les signes d'une page disparue : ils sont rangés en « indéterminé ».
 
 ### L'audit tourne aussi en intégration continue
 

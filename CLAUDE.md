@@ -86,7 +86,12 @@ npm run preview   # sync + build de production + aperçu sur http://localhost:80
 npm run serve     # serveur de dév Quartz — actifs non hachés, à éviter pour l'aperçu
 npm run build     # sync + build
 npm run build:ci  # build seul, sans sync (ce que fait la CI)
+npm test          # tests de sync-vault.mjs (coffres jetables, processus séparé)
+npm run links     # liens externes morts, lus dans le site construit
 ```
+
+`CONTENT_DIR` n'existe que pour les tests : le script supprime ce qu'il ne
+reconnaît pas, et une suite qui viserait le vrai `content/` le viderait.
 
 La CI (`.github/workflows/deploy.yml`) se déclenche sur push vers `main` et lance
 **`build:ci`**, jamais `sync` : le coffre n'existe pas sur le runner. Le site déployé
@@ -154,8 +159,18 @@ Points non évidents du moteur (`@quartz-community/bases-page`) :
 - Les chaînes d'interface de ce plugin ne sont qu'en anglais (« No data found. »), même
   avec `locale: fr-FR`.
 
-Bases existantes : `allPosts.base` (billets de `blog/` — ne couvre **pas** `posts/`), `chantEvents.base` (événements d'un chant),
-`factionMembers.base` (membres d'une faction).
+- **Le moteur ne sait pas comparer une date.** Un tri sur `file.ctime` retombe sur
+  `String(date).localeCompare(…)`, c'est-à-dire sur le **nom du jour de la semaine** :
+  l'ordre obtenu est stable, plausible et absurde. Trier sur `created`, la clé du
+  frontmatter, qui arrive en chaîne ISO. Pour la même raison, ne pas afficher de colonne
+  de date : elle sort en JSON entre guillemets, dans un bloc de code.
+- **`publish == true` n'est pas redondant** dans un filtre, contrairement à ce qu'on
+  croirait : `content/` ne contient que du publié, mais l'index de Quartz contient aussi
+  les pages de dossier qu'il engendre — `posts/index` passait le filtre de chemin.
+
+Bases existantes : `blogEntriesBase` (les 17 billets), `postsEntriesBase` (les trouvailles),
+`odysseeEntriesBase` (le wiki), `journalBase` (billets + trouvailles + chants, par date),
+`chantEvents` (événements d'un chant), `factionMembers` (membres d'une faction).
 
 ## Confidentialité : `note-properties` affiche tout
 

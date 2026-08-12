@@ -28,7 +28,16 @@ import YAML from "yaml"
 import { slugifyFilePath } from "@quartz-community/utils"
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
-const CONTENT_DIR = path.join(REPO_ROOT, "content")
+
+/**
+ * Destination de la synchronisation. `CONTENT_DIR` n'existe que pour les
+ * tests : ce script **supprime** ce qu'il ne reconnaît pas, et une suite de
+ * tests qui viserait le vrai `content/` le viderait à la première exécution.
+ * En usage normal la variable n'est pas définie, et rien ne change.
+ */
+const CONTENT_DIR = process.env.CONTENT_DIR
+  ? path.resolve(process.env.CONTENT_DIR)
+  : path.join(REPO_ROOT, "content")
 
 const VAULT_PATH = process.env.VAULT_PATH ?? "/home/ipro0800/Documents/data/obsidian/petersVault"
 

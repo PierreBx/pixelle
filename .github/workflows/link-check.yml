@@ -1,0 +1,85 @@
+name: Veille des liens externes
+
+# Le site cite des dizaines de vidéos et de pages tierces. Quand l'une
+# disparaît, rien ne le signale : la vignette reste, le lien ne mène plus
+# nulle part, et le site vieillit en silence. Ce travail planifié est le
+# seul endroit où cette usure devient visible.
+#
+# Il ne touche jamais au site : il construit, vérifie, et ouvre un ticket.
+#
+# GitHub désactive un travail planifié après 60 jours sans activité dans le
+# dépôt. `workflow_dispatch` permet de le relancer à la main, ce qui le
+# réarme.
+
+on:
+  schedule:
+    # Lundi, 6 h UTC. L'heure exacte n'a aucune importance ; le lundi, si.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: "link-check"
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Cache Quartz plugins
+        uses: actions/cache@v5
+        with:
+          path: .quartz/plugins
+          key: ${{ runner.os }}-plugins-${{ hashFiles('quartz.config.yaml', 'package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-plugins-
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Quartz plugins
+        run: npx quartz plugin install --from-config
+
+      # Le vérificateur lit le site **construit** : c'est le seul endroit où
+      # une URL a des limites nettes, et où l'on sait ce qu'un lecteur peut
+      # réellement cliquer.
+      - name: Build site
+        run: npm run build:ci
+
+      - name: Check external links
+        id: check
+        run: |
+          set +e
+          node scripts/check-links.mjs --markdown > rapport.md
+          echo "dead=$?" >> "$GITHUB_OUTPUT"
+          cat rapport.md
+
+      - name: Open or update an issue
+        if: steps.check.outputs.dead != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          titre="Liens morts détectés"
+          corps="$(cat rapport.md)
+
+          ---
+          Relevé automatique du $(date -u +%Y-%m-%d). Les corrections se font
+          **dans le coffre**, puis \`npm run sync\`.
+          [Journal du contrôle](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+
+          existant="$(gh issue list --state open --search "$titre in:title" --json number --jq '.[0].number')"
+          if [ -n "$existant" ]; then
+            gh issue comment "$existant" --body "$corps"
+          else
+            gh issue create --title "$titre" --body "$corps"
+          fi

@@ -1,0 +1,32 @@
+views:
+  - type: table
+    name: Journal
+    filters:
+      and:
+        - publish == true
+        # Les trois corpus qui se lisent comme une activité datée. Les fiches
+        # de l'Odyssée — personnages, lieux, événements — en sont exclues :
+        # elles sont un wiki, elles n'arrivent pas à une date.
+        - or:
+            - file.path.startsWith("blog/")
+            - file.path.startsWith("public/blog/")
+            - file.path.startsWith("posts/")
+            - file.path.startsWith("public/posts/")
+            - file.path.startsWith("odyssée/Chants/")
+            - file.path.startsWith("public/odyssée/Chants/")
+    order:
+      - file.name
+      - file.folder
+      - tags
+      - description
+    # Tri sur `created`, la clé du frontmatter, et non sur `file.ctime` : le
+    # moteur ne sait pas comparer une date en objet et retomberait sur le nom
+    # du jour de la semaine.
+    sort:
+      - property: created
+        direction: DESC
+      - property: file.name
+        direction: ASC
+    columnSize:
+      file.name: 320
+      note.description: 200

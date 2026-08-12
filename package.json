@@ -15,6 +15,8 @@
     "quartz": "./quartz/bootstrap-cli.mjs",
     "install-plugins": "npx tsx ./quartz/plugins/loader/install-plugins.ts",
     "prebuild": "npm run install-plugins",
+    "test": "node --test scripts/*.test.mjs",
+    "links": "node scripts/check-links.mjs",
     "check": "tsc --noEmit",
     "format": "npx prettier . --write"
   },

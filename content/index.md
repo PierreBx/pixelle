@@ -14,6 +14,7 @@ Un carnet public, tenu depuis un coffre Obsidian : des billets sur des concerts,
 
 ## Le reste
 
+- [[Journal]] — tout ce qui a été publié, du plus récent au plus ancien.
 - [[Trouvailles]] — ce qui a été trié depuis les captures : musique, danse, cinéma, poésie.
 - [L'Odyssée](odyssée/) — personnages, lieux et événements, au rythme de la lecture.
 - [[Sommaire]] — l'index complet, tous corpus confondus.
