@@ -8,7 +8,7 @@ modified: 2026-05-20
 tags: [music, location/france/bordeaux/auditorium]
 ---
 
-![[2026-05-20-Jakub Josef Orlinski - If Music.webp|Portrait en noir et blanc de Jakub Józef Orliński, de profil]]
+<img src="../_assets/images/2026-05-20-jakub-josef-orlinski---if-music.webp" srcset="../_assets/images/2026-05-20-jakub-josef-orlinski---if-music-480.webp 480w, ../_assets/images/2026-05-20-jakub-josef-orlinski---if-music-960.webp 960w, ../_assets/images/2026-05-20-jakub-josef-orlinski---if-music.webp 1200w" sizes="(max-width: 800px) 100vw, 750px" alt="Portrait en noir et blanc de Jakub Józef Orliński, de profil" width="1200" height="800" loading="lazy" decoding="async" />
 
 ## À Propos
 

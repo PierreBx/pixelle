@@ -8,4 +8,4 @@ place: "[[places/Jardins de Marqueyssac|Jardins de Marqueyssac]]"
 tags: [location/france/vézac/jardins-de-marqueyssac]
 ---
 
-![[2026-08-09-Jardins de Marqueyssac.webp|Les buis taillés en vagues des jardins de Marqueyssac, dominant la vallée de la Dordogne]]
+<img src="../_assets/images/2026-08-09-jardins-de-marqueyssac.webp" srcset="../_assets/images/2026-08-09-jardins-de-marqueyssac-480.webp 480w, ../_assets/images/2026-08-09-jardins-de-marqueyssac.webp 960w" sizes="(max-width: 800px) 100vw, 750px" alt="Les buis taillés en vagues des jardins de Marqueyssac, dominant la vallée de la Dordogne" width="960" height="540" loading="lazy" decoding="async" />

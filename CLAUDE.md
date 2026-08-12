@@ -217,9 +217,25 @@ SVG calculé depuis les `coordinates` (`scripts/maps.mjs`). Trois cartes : `blog
 `odyssey`, `world`.
 
 Quartz ne rend ni `leaflet` ni `mapview`, et des tuiles seraient une requête tierce à
-chaque déplacement. Conséquence assumée : **sans fond de carte, c'est un repère, pas
-une carte.** Une définition peut recevoir `basemap: { href, bbox }` — le bbox doit être
-celui de l'image, sans quoi les points tombent à côté.
+chaque déplacement. Le fond est donc vectoriel : le trait de côte Natural Earth 1:50m
+(domaine public, `scripts/data/`), découpé au cadre. Il porte ses coordonnées, là où une
+image exigerait de deviner ses coins — et l'erreur se verrait sur des salles distantes de
+deux cents mètres. Il ne part jamais chez le visiteur.
+
+Une image géoréférencée reste possible : `basemap: { href, bbox }`.
+
+## Images : `<img>` plutôt qu'incorporation
+
+Une image incorporée devient une balise `<img>` dans la copie, avec `srcset` (480, 960 et
+la taille servie), `sizes`, et les **dimensions réelles** — Quartz écrivait « auto », donc
+le texte sautait à chaque image chargée.
+
+Piège vérifié : les adresses doivent être slugifiées **par la synchronisation**
+(`slugifyFilePath`). Quartz réécrit `src` mais ignore `srcset` : sans cela les variantes
+pointent vers des fichiers inexistants, et seuls les petits écrans en souffrent.
+
+Conséquence pour l'audit : le texte alternatif se contrôle désormais sur l'attribut `alt`
+des `<img>`, pas seulement sur l'alias des incorporations restantes.
 
 ## Confidentialité : `note-properties` affiche tout
 

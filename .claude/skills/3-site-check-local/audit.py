@@ -418,6 +418,26 @@ def audit_content(rep, scope_all):
                     "broken", f"{rel} — `{tag}` block shown as raw code on the site"
                 )
 
+        # La synchronisation transforme une incorporation d'image en balise
+        # `<img>`, seule forme qui porte un `srcset` et des dimensions. L'alias
+        # Obsidian y devient l'attribut `alt` : c'est donc lui qu'on contrôle
+        # ici, en plus des incorporations restées telles quelles (images sans
+        # dimensions lisibles, ou copiées sans optimisation).
+        for tag in re.findall(r"<img\b[^>]*>", body):
+            if "_assets" not in tag:
+                continue
+            embeds += 1
+            alt = re.search(r'\balt\s*=\s*"([^"]*)"', tag)
+            if not alt or not alt.group(1).strip():
+                src = re.search(r'\bsrc\s*=\s*"([^"]*)"', tag)
+                name = os.path.basename(src.group(1)) if src else "?"
+                c_alt.add(
+                    "broken",
+                    f"{rel} — `{name}` part sans alternative : rien à lire "
+                    f"pour qui ne voit pas l'image. Dans le coffre : "
+                    f"`![[{name}|description]]`",
+                )
+
         # Obsidian écrit le texte alternatif dans l'alias de l'incorporation,
         # et Quartz le rend en `alt` — sauf quand l'alias est purement
         # numérique (`|300`, `|300x200`), qui désigne des dimensions.

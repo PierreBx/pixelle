@@ -17,6 +17,59 @@
  * qui situe honnêtement sans prétendre à la géographie.
  */
 
+import { readFileSync } from "node:fs"
+import path from "node:path"
+import { fileURLToPath } from "node:url"
+
+/**
+ * Trait de côte mondial (Natural Earth 1:50m, domaine public — voir
+ * `data/README.md`). Chargé une fois, découpé au cadre de chaque carte.
+ *
+ * Un trait vectoriel plutôt qu'une image de fond, parce qu'une carte a besoin
+ * d'un géoréférencement : une image trouvée quelque part n'a pas de coins
+ * connus, et les deviner déplace visiblement des salles distantes de deux cents
+ * mètres. Ici chaque point porte sa longitude et sa latitude, et se projette
+ * comme les lieux du site. La même donnée sert toutes les échelles.
+ */
+let coastCache = null
+function coastline() {
+  if (coastCache) return coastCache
+  const file = path.join(path.dirname(fileURLToPath(import.meta.url)), "data/coastline-50m.json")
+  try {
+    coastCache = JSON.parse(readFileSync(file, "utf8"))
+  } catch {
+    coastCache = [] // pas de fond : les cartes restent des repères quadrillés
+  }
+  return coastCache
+}
+
+/**
+ * Polylignes découpées au cadre. Le découpage se fait au sommet le plus proche
+ * et non à l'intersection exacte : les points étant espacés d'une centaine de
+ * mètres, la différence ne se voit à aucune échelle rendue ici.
+ */
+function clipCoast(west, south, east, north) {
+  const out = []
+  for (const flat of coastline()) {
+    let run = null
+    for (let i = 0; i < flat.length; i += 2) {
+      const lon = flat[i]
+      const lat = flat[i + 1]
+      const inside = lon >= west && lon <= east && lat >= south && lat <= north
+      if (inside) {
+        if (!run) run = []
+        run.push(lon, lat)
+      } else if (run) {
+        run.push(lon, lat) // un sommet au-delà, pour que le trait sorte du cadre
+        if (run.length > 2) out.push(run)
+        run = null
+      }
+    }
+    if (run && run.length > 2) out.push(run)
+  }
+  return out
+}
+
 /** Projection équirectangulaire. La longitude est comprimée par cos(lat). */
 function project(places) {
   const lats = places.map((p) => p.lat)
@@ -56,7 +109,12 @@ export function renderMap(places, opts = {}) {
 
   // Cadre : les points, plus une marge, avec un minimum pour qu'un lieu isolé
   // ne soit pas affiché à l'échelle du mètre.
-  const minSpan = 0.15
+  // Cadre minimal. Une poignée de salles d'une même ville tiendrait dans un
+  // carré de deux kilomètres, où aucune côte ne passe : le fond n'y dessinerait
+  // qu'un bout de trait sans nom, plus déroutant qu'utile. On ouvre donc le
+  // cadre jusqu'à ce que la géographie ait quelque chose à dire — au prix de
+  // points plus serrés, ce que le placement des étiquettes sait absorber.
+  const minSpan = 2.2
   let [x0, x1] = [Math.min(...pts.map((p) => p.px)), Math.max(...pts.map((p) => p.px))]
   let [y0, y1] = [Math.min(...pts.map((p) => p.py)), Math.max(...pts.map((p) => p.py))]
   if (x1 - x0 < minSpan) [x0, x1] = [(x0 + x1) / 2 - minSpan / 2, (x0 + x1) / 2 + minSpan / 2]
@@ -104,10 +162,28 @@ export function renderMap(places, opts = {}) {
         `width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" preserveAspectRatio="none"/>`,
     )
   } else {
-    // Quadrillage gradué : il situe sans prétendre dessiner la géographie.
+    // Trait de côte, découpé au cadre. Dessiné sous le quadrillage : c'est le
+    // fond, pas la donnée.
+    const coast = clipCoast(x0 / proj.kx, -y1, x1 / proj.kx, -y0)
+    if (coast.length) {
+      out.push(`<g fill="none" stroke="currentColor" stroke-width="0.9" opacity="0.38"`)
+      out.push(` stroke-linejoin="round" stroke-linecap="round">`)
+      for (const flat of coast) {
+        const d = []
+        for (let i = 0; i < flat.length; i += 2) {
+          const X = sx(proj.x(flat[i])).toFixed(1)
+          const Y = sy(proj.y(flat[i + 1])).toFixed(1)
+          d.push(`${i === 0 ? "M" : "L"}${X} ${Y}`)
+        }
+        out.push(`<path d="${d.join(" ")}"/>`)
+      }
+      out.push(`</g>`)
+    }
+
+    // Quadrillage gradué, discret : il situe même là où aucune côte ne passe.
     const stepLon = niceStep((x1 - x0) / proj.kx)
     const stepLat = niceStep(y1 - y0)
-    out.push(`<g stroke="currentColor" stroke-width="0.5" opacity="0.16">`)
+    out.push(`<g stroke="currentColor" stroke-width="0.5" opacity="0.13">`)
     for (let lon = Math.ceil((x0 / proj.kx) / stepLon) * stepLon; proj.x(lon) <= x1; lon += stepLon) {
       const X = sx(proj.x(lon)).toFixed(1)
       out.push(`<line x1="${X}" y1="0" x2="${X}" y2="${height}"/>`)

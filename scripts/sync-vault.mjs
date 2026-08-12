@@ -151,6 +151,23 @@ const IMAGE_QUALITY = Number(process.env.IMAGE_QUALITY ?? 80)
 const THUMB_MAX_SIDE = 1200
 
 /**
+ * Largeurs supplémentaires servies aux petits écrans.
+ *
+ * Une image de 1600 px partait jusqu'ici vers un téléphone de 375 px, soit
+ * quatre fois trop d'octets pour un écran qui n'en montrera jamais la moitié.
+ * On émet donc quelques largeurs et un `srcset` : le navigateur choisit.
+ *
+ * Conséquence : l'incorporation Obsidian devient une balise `<img>` dans la
+ * copie, seule forme qui porte `srcset`. Elle emporte au passage les dimensions
+ * réelles, que Quartz écrivait « auto » — le navigateur ne pouvait donc rien
+ * réserver, et le texte sautait à l'arrivée de chaque image.
+ */
+const IMAGE_WIDTHS = [480, 960]
+
+/** Largeur de la colonne de texte, pour que le navigateur choisisse juste. */
+const IMAGE_SIZES = "(max-width: 800px) 100vw, 750px"
+
+/**
  * Formats ré-encodés en WebP. `.gif` en est exclu (l'animation survit mal),
  * `.avif` aussi (déjà plus compact que ce que WebP produirait), et `.svg`
  * n'est pas une image matricielle.
@@ -627,6 +644,35 @@ function rewriteAttachmentRefs(raw, dest, planFor) {
     return `[${label} — ${plan.ext.slice(1).toUpperCase()}${weight}](${encodeURI(prefix + plan.dest)})`
   }
 
+  // Une image incorporée devient une balise `<img>` : c'est la seule forme qui
+  // porte un `srcset` et des dimensions. L'alias Obsidian, qui servait de texte
+  // alternatif, devient l'attribut `alt` — même information, même exigence.
+  //
+  // Les adresses sont slugifiées **ici**, avec la fonction de Quartz. Quartz
+  // réécrit `src` au passage mais ignore `srcset` : sans cela, `src` pointait
+  // vers `…grottes-de-rouffignac-2.webp` pendant que `srcset` annonçait
+  // `…Grottes%20de%20Rouffignac-2-480.webp`, qui n'existe pas. Le navigateur
+  // aurait choisi une variante introuvable — précisément sur les petits écrans
+  // que le `srcset` est censé servir.
+  const imgTag = (plan, alias) => {
+    const url = (d) => encodeURI(prefix + slugifyFilePath(d))
+    const srcset = (plan.variants ?? [])
+      .map((v) => `${url(v.dest)} ${v.width}w`)
+      .concat(plan.width ? `${url(plan.dest)} ${plan.width}w` : [])
+      .join(", ")
+    const attrs = [
+      `src="${url(plan.dest)}"`,
+      srcset && `srcset="${srcset}"`,
+      srcset && `sizes="${IMAGE_SIZES}"`,
+      `alt="${escapeHtml(alias?.trim() ?? "")}"`,
+      plan.width && `width="${plan.width}"`,
+      plan.height && `height="${plan.height}"`,
+      `loading="lazy"`,
+      `decoding="async"`,
+    ].filter(Boolean)
+    return `<img ${attrs.join(" ")} />`
+  }
+
   let out = body.replace(/(!?)\[\[([^\]]+?)\]\]/g, (all, bang, inner) => {
     const parts = inner.split("|")
     const target = parts[0].trim()
@@ -634,10 +680,21 @@ function rewriteAttachmentRefs(raw, dest, planFor) {
     if (!plan) return all
     if (plan.kind === "doc") return docLink(plan, parts.slice(1).join("|"))
     if (plan.kind !== "image") return all
-    const renamed = swapExt(target, ".webp")
-    if (renamed === target) return all
-    parts[0] = renamed
-    return `${bang}[[${parts.join("|")}]]`
+    // Une image seulement citée — `[[image]]` sans `!` — reste un lien.
+    if (!bang) {
+      const renamed = swapExt(target, ".webp")
+      if (renamed === target) return all
+      parts[0] = renamed
+      return `[[${parts.join("|")}]]`
+    }
+    // Sans dimensions lisibles, on s'en tient à l'incorporation d'origine.
+    if (!plan.width) {
+      const renamed = swapExt(target, ".webp")
+      if (renamed === target) return all
+      parts[0] = renamed
+      return `${bang}[[${parts.join("|")}]]`
+    }
+    return imgTag(plan, parts.slice(1).join("|"))
   })
 
   out = out.replace(/(!?)\[([^\]]*)\]\(([^)]+)\)/g, (all, bang, label, url) => {
@@ -758,6 +815,36 @@ async function copyIfChanged(src, dest, plan) {
   return true
 }
 
+/**
+ * Dimensions servies, et largeurs supplémentaires à émettre.
+ *
+ * Lu **avant** d'écrire quoi que ce soit : les notes portent les dimensions
+ * dans leur `<img>`, il faut donc les connaître au moment de les réécrire, pas
+ * au moment de copier les fichiers.
+ *
+ * `rotate()` est appliqué d'abord, sinon une photo verticale prise au téléphone
+ * annonce les dimensions de son capteur, couchées.
+ */
+async function measureImage(src, dest) {
+  if (!OPTIMISE_IMAGES) return {}
+  try {
+    const sharp = await getSharp()
+    const meta = await sharp(src).rotate().metadata()
+    if (!meta.width || !meta.height) return {}
+    const scale = Math.min(1, IMAGE_MAX_SIDE / Math.max(meta.width, meta.height))
+    const width = Math.round(meta.width * scale)
+    const height = Math.round(meta.height * scale)
+    // Une variante n'a de sens que si elle est plus petite que l'image servie.
+    const variants = IMAGE_WIDTHS.filter((w) => w < width).map((w) => ({
+      width: w,
+      dest: dest.replace(/\.webp$/, `-${w}.webp`),
+    }))
+    return { width, height, variants }
+  } catch {
+    return {} // image illisible : on retombe sur une incorporation simple
+  }
+}
+
 /** sharp met ~100 ms à se charger : inutile quand rien n'est à ré-encoder. */
 let sharpModule = null
 async function getSharp() {
@@ -775,28 +862,31 @@ async function getSharp() {
  * La taille du fichier de destination ne peut pas servir de test de fraîcheur
  * (elle n'a rien à voir avec celle de la source) : seule la date fait foi.
  */
-async function writeImage(src, dest) {
+async function writeImage(src, dest, maxWidth) {
   if (existsSync(dest)) {
     const [a, b] = await Promise.all([stat(src), stat(dest)])
     if (a.mtimeMs <= b.mtimeMs) return false
   }
   const sharp = await getSharp()
+  // Une variante est bornée en largeur ; l'image principale, sur son plus
+  // grand côté — c'est la surface qui fait le poids (voir IMAGE_MAX_SIDE).
+  const fit = maxWidth
+    ? { width: maxWidth, withoutEnlargement: true }
+    : { width: IMAGE_MAX_SIDE, height: IMAGE_MAX_SIDE, fit: "inside", withoutEnlargement: true }
   const encoded = await sharp(src)
     .rotate()
-    .resize({
-      width: IMAGE_MAX_SIDE,
-      height: IMAGE_MAX_SIDE,
-      fit: "inside",
-      withoutEnlargement: true,
-    })
+    .resize(fit)
     .webp({ quality: IMAGE_QUALITY, effort: 5 })
     .toBuffer()
   // Une source WebP déjà bien compressée peut battre le ré-encodage. On garde
   // alors l'original — c'est permis ici, et seulement ici, parce que
   // l'extension de destination est la même : le fichier reste honnête.
   const original = await readFile(src)
+  // Jamais pour une variante : garder l'original reviendrait à servir l'image
+  // pleine taille sous le nom d'une petite largeur, ce que le `srcset` promet
+  // justement de ne pas faire.
   const keepOriginal =
-    path.extname(src).toLowerCase() === ".webp" && original.length <= encoded.length
+    !maxWidth && path.extname(src).toLowerCase() === ".webp" && original.length <= encoded.length
   await writeFile(dest, keepOriginal ? original : encoded)
   return true
 }
@@ -979,6 +1069,9 @@ async function main() {
         if (plan.kind === "doc") {
           plan.size = (await stat(path.join(VAULT_PATH, hit.relPath))).size
         }
+        if (plan.kind === "image") {
+          Object.assign(plan, await measureImage(path.join(VAULT_PATH, hit.relPath), plan.dest))
+        }
         attachmentPlans.set(hit.relPath, plan)
       }
       note.plans.set(target, attachmentPlans.get(hit.relPath))
@@ -1137,6 +1230,11 @@ async function main() {
   const desired = new Set([
     ...published.map((p) => p.dest),
     ...[...attachmentsToCopy.keys()].map((relPath) => attachmentPlans.get(relPath).dest),
+    // Les largeurs supplémentaires du `srcset` : sans elles ici, la passe de
+    // nettoyage les supprimerait aussitôt écrites.
+    ...[...attachmentsToCopy.keys()].flatMap(
+      (relPath) => (attachmentPlans.get(relPath).variants ?? []).map((v) => v.dest),
+    ),
     ...thumbnails.keys(),
   ])
 
@@ -1209,6 +1307,9 @@ async function main() {
       path.join(CONTENT_DIR, dest),
       plan,
     )
+    for (const v of plan.variants ?? []) {
+      await writeImage(path.join(VAULT_PATH, relPath), path.join(CONTENT_DIR, v.dest), v.width)
+    }
     if (changed) {
       attachmentsWritten++
       if (VERBOSE) console.log(c.green(`  + ${label}`))

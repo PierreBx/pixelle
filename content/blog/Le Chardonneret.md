@@ -18,7 +18,7 @@ tags: [literature]
 category: [work]
 ---
 
-![[le-chardonneret-cover.webp|Couverture du roman de Donna Tartt : le tableau du chardonneret entrevu par une déchirure du papier]]
+<img src="../_assets/images/le-chardonneret-cover.webp" srcset="../_assets/images/le-chardonneret-cover-480.webp 480w, ../_assets/images/le-chardonneret-cover.webp 488w" sizes="(max-width: 800px) 100vw, 750px" alt="Couverture du roman de Donna Tartt : le tableau du chardonneret entrevu par une déchirure du papier" width="488" height="750" loading="lazy" decoding="async" />
 
 ## Résumé
 

@@ -11,4 +11,4 @@ modified: 2026-07-11
 tags: [film]
 category: [work]
 ---
-![[IMG_4776.webp|Affiche du film : Adèle Exarchopoulos et Léa Seydoux riant, sous la Palme d’or]]
+<img src="../_assets/images/img_4776.webp" srcset="../_assets/images/img_4776-480.webp 480w, ../_assets/images/img_4776.webp 766w" sizes="(max-width: 800px) 100vw, 750px" alt="Affiche du film : Adèle Exarchopoulos et Léa Seydoux riant, sous la Palme d’or" width="766" height="1024" loading="lazy" decoding="async" />

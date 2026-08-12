@@ -189,6 +189,12 @@ Le coffre garde ses originaux ; c'est la copie vers `content/` qui est allégée
 
 C'est **le plus grand côté** qui est borné, pas la largeur : une photo en hauteur de 1600×2133 respecte n'importe quelle limite de largeur tout en pesant trois mégapixels. C'est la surface qui fait le poids.
 
+En plus de l'image servie, deux largeurs supplémentaires sont émises — 480 et 960 px — et l'incorporation devient une balise `<img>` portant un `srcset`. Un téléphone télécharge alors ce dont il a besoin : la page des Grottes de Rouffignac passe de 691 Ko à **89 Ko**.
+
+La balise emporte aussi les **dimensions réelles**, que Quartz écrivait « auto ». Sans elles, le navigateur ne peut rien réserver et le texte saute à l'arrivée de chaque image.
+
+Un piège vérifié : les adresses sont slugifiées par la synchronisation, avec la fonction de Quartz. Quartz réécrit `src` mais **ignore `srcset`** — sans cette précaution, `src` pointait vers `grottes-de-rouffignac-2.webp` pendant que `srcset` annonçait `Grottes%20de%20Rouffignac-2-480.webp`, inexistant. Le navigateur aurait choisi une variante introuvable, précisément sur les petits écrans qu'elle sert.
+
 Deux détails qui ont leur raison d'être :
 
 - l'orientation EXIF est appliquée avant l'encodage. Sans cela une photo prise au téléphone ressort couchée, sharp retirant les métadonnées ;
@@ -223,7 +229,13 @@ Un lieu sans `coordinates` n'apparaît sur aucune carte. C'est le cas voulu d'un
 
 `<!-- carte: world -->`, seul sur sa ligne d'une note publiée, est remplacé par un SVG engendré depuis les coordonnées des lieux. Trois cartes existent : `blog`, `odyssey`, `world`.
 
-Quartz ne rend ni `leaflet` ni `mapview`, et des tuiles OpenStreetMap seraient une requête tierce à chaque déplacement, sur un site qui n'en fait aucune. **Sans fond de carte, ce sont donc des repères et non des cartes** : les positions relatives sont justes — projection équirectangulaire, corrigée en cosinus de la latitude — mais rien ne dessine les côtes. Une définition de carte accepte `basemap: { href, bbox }` pour y remédier ; le bbox doit être celui de l'image, sans quoi les points tombent à côté.
+Quartz ne rend ni `leaflet` ni `mapview`, et des tuiles OpenStreetMap seraient une requête tierce à chaque déplacement, sur un site qui n'en fait aucune.
+
+Le fond est donc **vectoriel** : le trait de côte mondial de Natural Earth (domaine public), stocké dans `scripts/data/` et découpé au cadre de chaque carte. Un trait vectoriel porte ses coordonnées — chaque point est une longitude et une latitude — là où une image de fond exigerait de deviner ses coins, et l'erreur se verrait aussitôt sur des salles distantes de deux cents mètres. La même donnée sert toutes les échelles, du golfe de Corinthe à l'estuaire de la Gironde.
+
+Ce fichier ne part jamais chez le visiteur : seuls les tracés découpés finissent dans le SVG.
+
+Une définition de carte accepte par ailleurs `basemap: { href, bbox }` pour poser une image géoréférencée derrière, si un fond dessiné devient souhaitable.
 
 Deux détails de rendu qui ont leur raison d'être : le cadre est ramené entre 0,4 et 0,85 de proportion — quelques salles bordelaises et une grotte du Périgord tiennent sinon dans une bande six fois plus large que haute, exacte et illisible ; et les étiquettes sont placées par essais successifs autour de leur point, celles qui ne trouvent pas de place étant omises plutôt qu'empilées.
 

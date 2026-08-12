@@ -229,10 +229,54 @@ test("une image devient un .webp, et la note qui la cite est réécrite", async 
   assert.ok(!files.includes("_assets/images/photo.png"), "l'original ne doit pas être copié")
 
   const body = readFileSync(path.join(content, "blog/A.md"), "utf8")
-  assert.match(body, /!\[\[photo\.webp\|Un aplat bleu\]\]/, "la référence doit suivre le renommage")
+  assert.match(body, /<img [^>]*src="[^"]*photo\.webp"/, "l'incorporation devient une balise img")
+  assert.match(body, /alt="Un aplat bleu"/, "l'alias devient le texte alternatif")
+  assert.match(body, /width="40"[^>]*height="30"/, "les dimensions réelles doivent y être")
 
   const header = readFileSync(path.join(content, "_assets/images/photo.webp")).subarray(8, 12)
   assert.equal(header.toString("ascii"), "WEBP", "le fichier doit vraiment être du WebP")
+})
+
+test("une grande image reçoit des largeurs supplémentaires et un srcset", async () => {
+  const sharp = (await import("sharp")).default
+  const png = await sharp({
+    create: { width: 1400, height: 900, channels: 3, background: "#248" },
+  })
+    .png()
+    .toBuffer()
+  const vault = makeVault({
+    "public/blog/A.md": note("![[grande.png|Un grand aplat]]"),
+    "public/_assets/images/grande.png": png,
+  })
+  const content = makeContentDir()
+  const { files } = sync(vault, content)
+
+  assert.ok(files.includes("_assets/images/grande-480.webp"), "la largeur 480 doit exister")
+  assert.ok(files.includes("_assets/images/grande-960.webp"), "la largeur 960 doit exister")
+
+  const body = readFileSync(path.join(content, "blog/A.md"), "utf8")
+  assert.match(body, /srcset="[^"]*grande-480\.webp 480w[^"]*grande-960\.webp 960w/)
+  assert.match(body, /sizes="/)
+
+  // Une variante doit vraiment être plus légère : c'est tout l'intérêt.
+  const big = readFileSync(path.join(content, "_assets/images/grande.webp")).length
+  const small = readFileSync(path.join(content, "_assets/images/grande-480.webp")).length
+  assert.ok(small < big, `480 (${small} o) devrait peser moins que l'image servie (${big} o)`)
+})
+
+test("une image plus petite que les variantes n'en reçoit aucune", async () => {
+  const sharp = (await import("sharp")).default
+  const png = await sharp({
+    create: { width: 300, height: 200, channels: 3, background: "#333" },
+  })
+    .png()
+    .toBuffer()
+  const vault = makeVault({
+    "public/blog/A.md": note("![[petite.png|Petit aplat]]"),
+    "public/_assets/images/petite.png": png,
+  })
+  const { files } = sync(vault, makeContentDir())
+  assert.ok(!files.some((f) => f.includes("petite-480")), "aucune variante plus large que l'image")
 })
 
 test("OPTIMISE_IMAGES=0 recopie l'image telle quelle", async () => {

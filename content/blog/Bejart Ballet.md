@@ -31,8 +31,8 @@ L’Oiseau de Feu
 
 Boléro
 
-![[2026-04-08-Bejart Ballet-1.webp|Les danseurs du Béjart Ballet Lausanne autour d’une grande table ronde rouge, bras levés]]
+<img src="../_assets/images/2026-04-08-bejart-ballet-1.webp" srcset="../_assets/images/2026-04-08-bejart-ballet-1-480.webp 480w, ../_assets/images/2026-04-08-bejart-ballet-1-960.webp 960w, ../_assets/images/2026-04-08-bejart-ballet-1.webp 1600w" sizes="(max-width: 800px) 100vw, 750px" alt="Les danseurs du Béjart Ballet Lausanne autour d’une grande table ronde rouge, bras levés" width="1600" height="1067" loading="lazy" decoding="async" />
 
-![[2026-04-08-Bejart Ballet-2.webp|Une danseuse en académique rouge en plein saut, seule dans la lumière]]
+<img src="../_assets/images/2026-04-08-bejart-ballet-2.webp" srcset="../_assets/images/2026-04-08-bejart-ballet-2-480.webp 480w, ../_assets/images/2026-04-08-bejart-ballet-2-960.webp 960w, ../_assets/images/2026-04-08-bejart-ballet-2.webp 1600w" sizes="(max-width: 800px) 100vw, 750px" alt="Une danseuse en académique rouge en plein saut, seule dans la lumière" width="1600" height="900" loading="lazy" decoding="async" />
 
-![[2026-04-08-Bejart Ballet-3.webp|Une danseuse en équilibre sur la table ronde rouge, entourée des danseurs bras levés]]
+<img src="../_assets/images/2026-04-08-bejart-ballet-3.webp" srcset="../_assets/images/2026-04-08-bejart-ballet-3.webp 304w" sizes="(max-width: 800px) 100vw, 750px" alt="Une danseuse en équilibre sur la table ronde rouge, entourée des danseurs bras levés" width="304" height="166" loading="lazy" decoding="async" />
