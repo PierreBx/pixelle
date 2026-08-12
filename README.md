@@ -4,6 +4,8 @@ Publie une sélection de notes du coffre Obsidian **petersVault** sur GitHub Pag
 
 Le coffre lui-même n'est jamais poussé sur GitHub. Seules les notes rangées sous `public/` **et** marquées `publish: true` sont copiées dans `content/`, commitées, puis publiées.
 
+> **Vous venez écrire, pas bricoler la machine ?** → [`MEMENTO.md`](MEMENTO.md) : que faire pour un billet, une trouvaille, un chant, une correction. Ce README-ci explique le fonctionnement ; le mémento, les gestes.
+
 ## `content/` est un dossier généré
 
 `scripts/sync-vault.mjs` calcule l'état exact voulu et **supprime** tout fichier de `content/` qui n'en fait pas partie.

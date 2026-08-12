@@ -4,6 +4,10 @@ Site [Quartz 5](https://quartz.jzhao.xyz/) publié sur GitHub Pages
 (`git@github.com:PierreBx/pixelle.git` → `pierrebx.github.io/pixelle`). Le contenu
 provient d'un coffre Obsidian **externe au dépôt**.
 
+`MEMENTO.md` est le guide de l'auteur du site : les gestes, cas par cas. Quand une
+réponse tient en « voici quoi faire pour publier X », c'est là qu'elle est écrite —
+et c'est là qu'il faut la corriger si elle vieillit.
+
 ## La règle la plus importante : `content/` est généré
 
 `content/` est **produit** par `scripts/sync-vault.mjs` à partir du coffre. Le script
