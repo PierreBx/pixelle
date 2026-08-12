@@ -2,11 +2,11 @@
 publish: true
 type: place
 nature: real
-tags: [odyssey/place]
 ruler: "[[Ulysse]]"
-location: "38.40,20.71"
+coordinates: 38.40,20.71
 created: 2026-07-11
 modified: 2026-07-11
+map: odyssey
 ---
 
 ## Description

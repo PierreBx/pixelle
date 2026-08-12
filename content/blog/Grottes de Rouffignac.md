@@ -1,11 +1,11 @@
 ---
 publish: true
-tags: [visited]
 description:
-place: "[[Grotte de Rouffignac]]"
+place: "[[places/Grotte de Rouffignac|Grotte de Rouffignac]]"
 category: [place]
 created: 2026-08-09
 modified: 2026-08-09
+tags: [location/france/rouffignac-saint-cernin/grotte-de-rouffignac]
 ---
 
 ![[2026-08-09-Grottes de Rouffignac.webp|Mammouth dessiné au trait noir sur la voûte calcaire de la grotte]]

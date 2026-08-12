@@ -2,11 +2,11 @@
 publish: true
 type: place
 nature: real
-tags: [odyssey/place]
 ruler:
-location: "39.96,26.24"
+coordinates: 39.96,26.24
 created: 2026-07-11
 modified: 2026-07-11
+map: odyssey
 ---
 
 ## Description

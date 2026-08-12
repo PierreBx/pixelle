@@ -206,6 +206,27 @@ find content/_assets/images -maxdepth 1 -type f -delete && npm run sync
 
 Les vignettes, elles, ne sont réécrites que si le ré-encodage gagne au moins un dixième du poids. Sans ce seuil, une vignette restée juste au-dessus de la limite repassait à la moulinette à chaque synchronisation, perdant un peu de qualité à chaque fois.
 
+### Lieux : la chaîne des parents devient une étiquette
+
+Une note de contenu désigne **un** lieu ; une note de lieu désigne **son** parent. La synchronisation remonte la chaîne et écrit dans la copie une étiquette hiérarchique :
+
+```yaml
+# dans le coffre                    # dans content/
+place: "[[places/Grand-Théatre]]"   tags: [music, location/france/bordeaux/grand-théatre]
+```
+
+Pourquoi la déduire plutôt que la laisser écrire : Quartz ne sait pas remonter une chaîne. Ses liens retour ne font qu'un pas et une base ne récurse pas, si bien que « tout ce qui s'est passé en France » n'est pas calculable à partir des seuls `parent:`. Les étiquettes, elles, s'agrègent toutes seules — `/tags/location/france` regroupe ses descendants sans que personne l'entretienne. Chaque mécanisme fait donc ce qu'il sait faire : le lien donne la page du lieu et ses liens retour, l'étiquette donne les pages d'agrégat.
+
+Un lieu sans `coordinates` n'apparaît sur aucune carte. C'est le cas voulu d'un pays : sa position ne serait qu'un centroïde, qui étirerait le cadre de plusieurs centaines de kilomètres et relierait des salles de concert à un point qui n'existe nulle part.
+
+### Cartes : un SVG calculé, aucune tuile
+
+`<!-- carte: world -->`, seul sur sa ligne d'une note publiée, est remplacé par un SVG engendré depuis les coordonnées des lieux. Trois cartes existent : `blog`, `odyssey`, `world`.
+
+Quartz ne rend ni `leaflet` ni `mapview`, et des tuiles OpenStreetMap seraient une requête tierce à chaque déplacement, sur un site qui n'en fait aucune. **Sans fond de carte, ce sont donc des repères et non des cartes** : les positions relatives sont justes — projection équirectangulaire, corrigée en cosinus de la latitude — mais rien ne dessine les côtes. Une définition de carte accepte `basemap: { href, bbox }` pour y remédier ; le bbox doit être celui de l'image, sans quoi les points tombent à côté.
+
+Deux détails de rendu qui ont leur raison d'être : le cadre est ramené entre 0,4 et 0,85 de proportion — quelques salles bordelaises et une grotte du Périgord tiennent sinon dans une bande six fois plus large que haute, exacte et illisible ; et les étiquettes sont placées par essais successifs autour de leur point, celles qui ne trouvent pas de place étant omises plutôt qu'empilées.
+
 ### Vignettes : aucune requête tierce avant le clic
 
 Les notes gardent un simple lien markdown, lisible dans Obsidian. C'est la synchronisation qui le remplace, **dans `content/` uniquement**, par une vignette cliquable. Le coffre n'est jamais modifié.

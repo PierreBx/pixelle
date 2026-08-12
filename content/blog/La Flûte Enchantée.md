@@ -6,7 +6,8 @@ category:
   - event
 tags:
   - opera
-place: "[[Grand-Théatre]]"
+  - location/france/bordeaux/grand-théatre
+place: "[[places/Grand-Théatre|Grand-Théatre]]"
 created: 2026-03-31
 modified: 2026-04-13
 ---

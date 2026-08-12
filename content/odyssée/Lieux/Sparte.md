@@ -2,11 +2,11 @@
 publish: true
 type: place
 nature: real
-tags: [odyssey/place]
 ruler: "[[Ménélas]]"
-location: "37.07,22.43"
+coordinates: 37.07,22.43
 created: 2026-07-11
 modified: 2026-07-11
+map: odyssey
 ---
 
 ## Description

@@ -2,7 +2,6 @@
 publish: true
 type: character
 nature: nymph
-tags: [odyssey/character]
 father: "[[Atlas]]"
 mother:
 spouse:

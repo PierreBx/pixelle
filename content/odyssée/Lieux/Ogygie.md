@@ -2,9 +2,7 @@
 publish: true
 type: place
 nature: mythical
-tags: [odyssey/place]
 ruler: "[[Calypso]]"
-location: ""
 created: 2026-07-11
 modified: 2026-07-11
 ---

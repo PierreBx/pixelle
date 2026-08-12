@@ -2,11 +2,11 @@
 publish: true
 type: place
 nature: real
-tags: [odyssey/place]
 ruler: "[[Dioclès]]"
-location: "37.04,22.11"
+coordinates: 37.04,22.11
 created: 2026-07-12
 modified: 2026-07-12
+map: odyssey
 ---
 
 ## Description

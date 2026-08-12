@@ -26,6 +26,7 @@ import YAML from "yaml"
 // nombreuses (`&` -> `-and-`, `|` -> `-`, ponctuation typographique conservée)
 // et toute divergence produirait des liens morts sur la page d'accueil.
 import { slugifyFilePath } from "@quartz-community/utils"
+import { renderMap } from "./maps.mjs"
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 
@@ -412,6 +413,116 @@ async function fetchThumbnail(id, dest) {
     }
   }
   return false
+}
+
+// ---------------------------------------------------------------------------
+// Hiérarchie des lieux
+// ---------------------------------------------------------------------------
+// Une note de contenu désigne **un** lieu : `place: "[[places/Grand-Théatre]]"`.
+// Ce lieu désigne son parent, qui désigne le sien — un saut à la fois, jamais
+// la chaîne entière.
+//
+// Quartz ne sait pas remonter une chaîne : ses liens retour ne font qu'un pas
+// et une base ne récurse pas. « Tout ce qui s'est passé en France » n'est donc
+// pas calculable à partir des seuls `parent:`. Les **étiquettes**, elles,
+// s'agrègent toutes seules : `location/france` regroupe automatiquement ses
+// descendants. C'est la seule surface qui remonte.
+//
+// D'où la division : l'auteur écrit le lieu exact une fois, sous forme de lien
+// — la note-lieu porte ses coordonnées, sa description, ses liens retour — et
+// la synchronisation en déduit l'étiquette hiérarchique. Rien n'est écrit deux
+// fois, et les pages d'agrégat existent sans que personne les entretienne.
+
+const PLACE_TAG_ROOT = "location"
+
+/**
+ * Cartes disponibles. Une note publiée les appelle par un commentaire HTML
+ * seul sur sa ligne — invisible dans Obsidian, remplacé ici par le SVG :
+ *
+ *     <!-- carte: world -->
+ *
+ * `select` dit quels lieux figurent sur la carte. Pour ajouter un fond de
+ * carte, donner `basemap: { href, bbox: [ouest, sud, est, nord] }` : le bbox
+ * doit être celui de l'image, sans quoi les points tombent à côté.
+ */
+const MAPS = {
+  world: { title: "Les lieux du site", select: () => true },
+  odyssey: { title: "L'Odyssée", select: (p) => p.map === "odyssey" },
+  blog: { title: "Les lieux des billets", select: (p) => p.inBlog },
+}
+
+const MAP_MARKER = /^[ \t]*<!--[ \t]*carte:[ \t]*([\w-]+)[ \t]*-->[ \t]*$/gm
+
+/** `Saint-Médard-en-Jalles` -> `saint-médard-en-jalles`. */
+function placeSlug(name) {
+  return name.trim().toLowerCase().replace(/\s+/g, "-")
+}
+
+/**
+ * Index des lieux **publiés** : nom -> { name, parent }.
+ *
+ * Publiés seulement : un lieu privé n'a pas à voir son nom partir dans une
+ * étiquette publique. Une chaîne qui bute sur un lieu non publié s'arrête là.
+ */
+function buildPlaceIndex(published) {
+  const index = new Map()
+  for (const note of published) {
+    if (note.frontmatter?.type !== "place") continue
+    const name = path.basename(note.relPath, ".md")
+    const raw = note.frontmatter.parent
+    const parent = typeof raw === "string" ? raw.match(/\[\[([^\]|#]+)/)?.[1]?.trim() : null
+    index.set(name.toLowerCase(), {
+      name,
+      // `[[places/Bordeaux|Bordeaux]]` -> `Bordeaux`
+      parent: parent ? path.basename(parent) : null,
+    })
+  }
+  return index
+}
+
+/**
+ * Chaîne racine -> feuille d'un lieu, ou null s'il est inconnu.
+ * @param onBreak appelé quand un maillon manque, pour le rapport.
+ */
+function placeChain(target, index, onBreak) {
+  const start = index.get(path.basename(target).toLowerCase())
+  if (!start) return null
+  const chain = []
+  const seen = new Set()
+  let cur = start
+  while (cur) {
+    if (seen.has(cur.name.toLowerCase())) {
+      onBreak(`cycle dans la hiérarchie des lieux, à « ${cur.name} »`)
+      break
+    }
+    seen.add(cur.name.toLowerCase())
+    chain.unshift(cur.name)
+    if (!cur.parent) break
+    const next = index.get(cur.parent.toLowerCase())
+    if (!next) {
+      onBreak(`« ${cur.name} » a pour parent « ${cur.parent} », qui n'est pas un lieu publié`)
+      break
+    }
+    cur = next
+  }
+  return chain
+}
+
+/** Ajoute une étiquette au frontmatter, quelle que soit son écriture. */
+function addTag(frontmatter, tag) {
+  if (frontmatter === null) return `tags: [${tag}]`
+  if (new RegExp(`(^|[\\s,\\[])${tag}($|[\\s,\\]])`, "m").test(frontmatter)) return frontmatter
+  const inline = frontmatter.match(/^tags:[ \t]*\[(.*)\][ \t]*$/m)
+  if (inline) {
+    const inner = inline[1].trim()
+    return frontmatter.replace(inline[0], `tags: [${inner ? `${inner}, ` : ""}${tag}]`)
+  }
+  const block = frontmatter.match(/^tags:[ \t]*\n((?:[ \t]+-[ \t]+.*\n?)+)/m)
+  if (block) {
+    const indent = block[1].match(/^[ \t]+/)?.[0] ?? "  "
+    return frontmatter.replace(block[0], `${block[0].replace(/\n?$/, "\n")}${indent}- ${tag}\n`)
+  }
+  return `${frontmatter.replace(/\n?$/, "")}\ntags: [${tag}]`
 }
 
 /** Split leading YAML frontmatter from a markdown document. */
@@ -923,12 +1034,37 @@ async function main() {
     } else mediaDead.push(key)
   }
 
+  // Étiquette hiérarchique de lieu, déduite du lien `place:` (voir plus haut).
+  const placeIndex = buildPlaceIndex(published)
+  const placeBreaks = []
+  const placeUnknown = []
+  const blogPlaces = new Set() // lieux servant à un billet, pour la carte du blog
+  let placesTagged = 0
+
   const thumbnails = new Map() // slug dans content/ -> clé du média
   for (const note of published) {
     const rewritten = rewriteAttachmentRefs(note.raw, note.dest, (t) => note.plans.get(t) ?? null)
     const { text, thumbs } = embedYouTube(rewritten, note.dest, mediaAvailable)
     note.output = text
     for (const [slug, key] of thumbs) thumbnails.set(slug, key)
+
+    const raw = note.frontmatter?.place
+    const target = typeof raw === "string" ? raw.match(/\[\[([^\]|#]+)/)?.[1]?.trim() : null
+    if (!target) continue
+    const chain = placeChain(target, placeIndex, (why) => {
+      if (!placeBreaks.includes(why)) placeBreaks.push(why)
+    })
+    if (!chain || chain.length === 0) {
+      placeUnknown.push({ from: note.relPath, target })
+      continue
+    }
+    if (note.dest.startsWith("blog/")) {
+      for (const name of chain) blogPlaces.add(name.toLowerCase())
+    }
+    const tag = `${PLACE_TAG_ROOT}/${chain.map(placeSlug).join("/")}`
+    const { frontmatter, body } = splitFrontmatter(note.output)
+    note.output = `---\n${addTag(frontmatter, tag)}\n---\n${body}`
+    placesTagged++
   }
 
   if (published.length === 0) {
@@ -936,6 +1072,61 @@ async function main() {
     console.log(
       c.dim(`Add \`publish: true\` to a note's frontmatter to publish it.\n`),
     )
+  }
+
+  // ---- 2c. Cartes -------------------------------------------------------
+  // Après l'étiquetage : on sait alors quels lieux servent aux billets.
+  const mapPoints = []
+  for (const note of published) {
+    if (note.frontmatter?.type !== "place") continue
+    const raw = String(note.frontmatter.coordinates ?? "").trim()
+    const m = raw.match(/^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/)
+    if (!m) {
+      if (raw) placeBreaks.push(`coordonnées illisibles sur ${note.relPath} : « ${raw} »`)
+      continue
+    }
+    const name = path.basename(note.relPath, ".md")
+    const parentRaw = note.frontmatter.parent
+    const parentLink =
+      typeof parentRaw === "string" ? parentRaw.match(/\[\[([^\]|#]+)/)?.[1]?.trim() : null
+    mapPoints.push({
+      name,
+      lat: Number(m[1]),
+      lon: Number(m[2]),
+      parentName: parentLink ? path.basename(parentLink) : null,
+      map: note.frontmatter.map ?? null,
+      inBlog: blogPlaces.has(name.toLowerCase()),
+      href: note.dest.replace(/\.md$/, ""),
+    })
+  }
+
+  let mapsDrawn = 0
+  const mapsMissing = []
+  for (const note of published) {
+    if (!MAP_MARKER.test(note.output)) continue
+    MAP_MARKER.lastIndex = 0
+    const prefix = "../".repeat(note.dest.split("/").length - 1)
+    note.output = note.output.replace(MAP_MARKER, (all, name) => {
+      const def = MAPS[name]
+      if (!def) {
+        mapsMissing.push({ from: note.relPath, name })
+        return all
+      }
+      // Un lieu n'est tracé que s'il porte des coordonnées. Un pays n'en a pas :
+      // sa position ne serait qu'un centroïde, qui écarterait le cadre de
+      // plusieurs centaines de kilomètres et relierait des salles de spectacle
+      // à un point qui n'existe nulle part. Il reste un maillon de la
+      // hiérarchie et un ancêtre d'étiquette, sans être un point.
+      const pts = mapPoints
+        .filter(def.select)
+        .map((p) => ({ ...p, href: encodeURI(prefix + p.href) }))
+      mapsDrawn++
+      return renderMap(pts, { title: def.title })
+    })
+  }
+  if (mapsDrawn) console.log(c.dim(`  ${mapsDrawn} carte(s) dessinée(s)`))
+  for (const m of mapsMissing) {
+    console.log(c.yellow(`  carte inconnue : « ${m.name} » (appelée par ${m.from})`))
   }
 
   // ---- 3. Work out the exact desired state of content/ ------------------
@@ -1079,6 +1270,15 @@ async function main() {
       )
     }
     if (thumbsShrunk) console.log(c.dim(`  ${thumbsShrunk} vignette(s) allégée(s) sur place`))
+  }
+  if (placesTagged || placeUnknown.length || placeBreaks.length) {
+    console.log(
+      c.dim(`  ${placesTagged} note(s) situées — étiquette \`${PLACE_TAG_ROOT}/…\` déduite`),
+    )
+    for (const why of placeBreaks) console.log(c.yellow(`  chaîne des lieux : ${why}`))
+    for (const u of placeUnknown) {
+      console.log(c.yellow(`  lieu inconnu : ${u.target} (cité par ${u.from})`))
+    }
   }
   const docs = [...attachmentPlans.values()].filter((p) => p.kind === "doc")
   if (docs.length) {

@@ -2,7 +2,6 @@
 publish: true
 type: character
 nature: mortal
-tags: [odyssey/character]
 father: "[[Atrée]]"
 mother:
 spouse: "[[Clytemnestre]]"

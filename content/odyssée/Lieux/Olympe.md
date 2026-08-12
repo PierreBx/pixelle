@@ -2,12 +2,11 @@
 publish: true
 type: place
 nature: mythical
-tags:
-  - odyssey/place
 ruler: "[[Zeus]]"
-location: 40.09,22.36
+coordinates: 40.09,22.36
 created: 2026-07-11
 modified: 2026-07-11
+map: odyssey
 ---
 
 ## Description

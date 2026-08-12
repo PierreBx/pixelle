@@ -2,11 +2,11 @@
 publish: true
 type: place
 nature: real
-tags: [odyssey/place]
 ruler: "[[Nestor]]"
-location: "37.03,21.70"
+coordinates: 37.03,21.70
 created: 2026-07-11
 modified: 2026-07-11
+map: odyssey
 ---
 
 ## Description

@@ -1,10 +1,9 @@
 ---
 created: 2026-04-29
 modified: 2026-08-01
-category: [humor]
 description: Gilets jaunes
-tags: [post/humor]
 publish: true
+tags: [humor]
 ---
 
 <div class="yt-embed" role="button" tabindex="0" aria-label="Lire la vidéo : Vidéo YouTube" data-yt="ScSZrm5Yh6k" data-title="Vidéo YouTube" onclick="const f=document.createElement('iframe');f.src='https://www.youtube-nocookie.com/embed/'+this.dataset.yt+'?autoplay=1';f.title=this.dataset.title||'Vidéo YouTube';f.className='yt-player';f.allow='autoplay; encrypted-media; picture-in-picture; fullscreen';f.allowFullscreen=true;this.replaceWith(f)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">

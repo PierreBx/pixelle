@@ -2,8 +2,6 @@
 publish: true
 type: character
 nature: god
-tags:
-  - odyssey/character
 father: "[[Zeus]]"
 mother:
 spouse:

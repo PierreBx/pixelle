@@ -63,6 +63,22 @@ belongs in the Obsidian vault.
 
 UNRENDERED = ("dataview", "mapview", "leaflet", "zoommap")
 
+# La nature d'une note : liste fermée, et petite. Elle décrit ce qu'est la
+# note, pas de quoi elle parle — la discipline, elle, vit dans `tags`.
+CATEGORIES = ("work", "event", "place", "photo")
+
+# Les étiquettes de lieu sont **déduites** par la synchronisation à partir de
+# `place:`. Une nouvelle valeur y signale un lieu nouveau, pas une faute de
+# frappe : la note de lieu est l'objet à relire, pas l'étiquette.
+DERIVED_TAG_ROOTS = ("location/",)
+
+# Clés dont la publication a été décidée une fois pour toutes. Le contrôle de
+# nouveauté existe pour qu'aucune clé ne devienne publique par accident ; une
+# fois la question posée et tranchée, il n'a plus à la reposer. `parent` relie
+# un lieu à celui qui le contient, et sa valeur est un lien : l'afficher est
+# précisément ce qu'on veut.
+ACKNOWLEDGED_KEYS = ("parent",)
+
 IMAGE_EXTS = (".webp", ".png", ".jpg", ".jpeg", ".avif", ".gif", ".svg", ".bmp")
 DOC_EXTS = (".pdf",)
 
@@ -317,10 +333,11 @@ def audit_content(rep, scope_all):
     c_date = rep.check(S, "usable dates")
     c_alt = rep.check(S, "texte alternatif")
     c_desc = rep.check(S, "trouvailles décrites")
+    c_vocab = rep.check(S, "vocabulaire")
     c_keys = rep.check(S, "publicly exposed keys")
 
     if not changed:
-        for c in (c_parse, c_flag, c_body, c_block, c_self, c_date, c_alt, c_desc, c_keys):
+        for c in (c_parse, c_flag, c_body, c_block, c_self, c_date, c_alt, c_desc, c_vocab, c_keys):
             c.verdict = "not applicable"
         audit_assets(rep)
         audit_bases(rep)
@@ -344,6 +361,20 @@ def audit_content(rep, scope_all):
     for f in every:
         if f not in changed_set:
             absorb(os.path.relpath(f, "content"), frontmatter(read(f))[0])
+    # Étiquettes déjà en usage au point de comparaison. Même principe que pour
+    # les clés : on ne tient pas de liste fermée — qu'il faudrait éditer à
+    # chaque nouveau sujet — on signale ce qui n'existait nulle part. Une faute
+    # de frappe est détectée le jour où elle paraît ; un sujet vraiment neuf est
+    # signalé une fois, puis entre dans la référence au commit suivant.
+    tag_baseline = set()
+    for f in every:
+        source = read(f) if f not in set(changed) else show_head(f)
+        if source is None:
+            continue
+        fm_ref, _ = frontmatter(source)
+        for t in (fm_ref or {}).get("tags") or []:
+            tag_baseline.add(str(t))
+
     # Notes déjà publiées au point de comparaison. Sert à distinguer une note
     # neuve d'une note retouchée : on exige d'une nouveauté ce qu'on se contente
     # de signaler sur l'existant.
@@ -356,7 +387,7 @@ def audit_content(rep, scope_all):
 
     n = len(changed)
     stubs = links = dates = embeds = 0
-    posts_seen = 0
+    posts_seen = tags_seen = 0
     descriptions_missing = []
     assets = content_assets()
 
@@ -412,6 +443,26 @@ def audit_content(rep, scope_all):
         # vignette, et rien n'y dit pourquoi le lien a été gardé. On l'exige
         # d'un lien qui arrive, on le signale sur un lien déjà en ligne — sans
         # quoi retoucher une vieille note pour une virgule bloquerait la CI.
+        # Nature : liste fermée. Discipline : nouveauté signalée.
+        for cat in fm.get("category") or []:
+            if str(cat) not in CATEGORIES:
+                c_vocab.add(
+                    "broken",
+                    f"{rel} — `category: {cat}` hors vocabulaire ; "
+                    f"attendu {' · '.join(CATEGORIES)}",
+                )
+        for t in fm.get("tags") or []:
+            t = str(t)
+            tags_seen += 1
+            if t.startswith(DERIVED_TAG_ROOTS):
+                continue
+            if t not in tag_baseline:
+                c_vocab.add(
+                    "doubt",
+                    f"{rel} — `{t}` n'existait sur aucune autre note ; "
+                    f"faute de frappe, ou sujet neuf",
+                )
+
         if folder == "posts":
             posts_seen += 1
         if folder == "posts" and not str(fm.get("description") or "").strip():
@@ -441,7 +492,7 @@ def audit_content(rep, scope_all):
                 if isinstance(v, str) and v.strip().lower() in ("null", "none", "nan"):
                     c_date.add("broken", f"{rel} — `{k}: {v}` will display a wrong date")
 
-            if k in excl or scope_all:
+            if k in excl or k in ACKNOWLEDGED_KEYS or scope_all:
                 continue
             seen = baseline.get(k)
             if seen is None:
@@ -491,6 +542,8 @@ def audit_content(rep, scope_all):
             "toutes décrites", lambda k: plural(k, "sans alternative"))
     verdict(c_desc, plural(posts_seen, "trouvaille examinée", "trouvailles examinées"),
             "toutes décrites", lambda k: plural(k, "sans description", "sans description"))
+    verdict(c_vocab, plural(tags_seen, "étiquette examinée", "étiquettes examinées"),
+            "toutes connues", lambda k: plural(k, "hors vocabulaire", "hors vocabulaire"))
 
     if scope_all:
         audit_keys_corpus(rep, c_keys, every, excl)

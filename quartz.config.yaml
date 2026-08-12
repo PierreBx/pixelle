@@ -292,6 +292,13 @@ plugins:
         # ci-dessous, les rend en pastilles sous le titre — leur place. Les
         # laisser aux deux endroits les affichait simplement deux fois.
         - tags
+        # Données de carte, pas de contenu : `coordinates` nourrit le SVG
+        # engendré à la synchronisation, `map` dit sur quelle carte le lieu
+        # figure. Une latitude affichée en clair sous le titre d'une salle de
+        # concert n'apprend rien à personne. `parent`, lui, reste visible :
+        # sa valeur est un lien, et c'est la hiérarchie qu'on veut pouvoir suivre.
+        - coordinates
+        - map
       hidePropertiesView: false
       delimiters: ---
       language: yaml

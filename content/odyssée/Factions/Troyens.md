@@ -1,7 +1,6 @@
 ---
 publish: true
 type: faction
-tags: [odyssey/faction]
 leader: "[[Hector]]"
 created: 2026-07-12
 modified: 2026-07-12

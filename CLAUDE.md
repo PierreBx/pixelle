@@ -176,6 +176,51 @@ Bases existantes : `blogEntriesBase` (les 17 billets), `postsEntriesBase` (les t
 `odysseeEntriesBase` (le wiki), `journalBase` (billets + trouvailles + chants, par date),
 `chantEvents` (événements d'un chant), `factionMembers` (membres d'une faction).
 
+## Classement : trois axes, jamais répétés
+
+| axe | porté par | valeurs |
+| --- | --- | --- |
+| corpus | **le dossier** | `blog/` · `posts/` · `odyssée/` · `places/` |
+| nature | `category` | `work` · `event` · `place` · `photo` — liste fermée |
+| discipline | `tags` | anglais, sans préfixe de corpus, hiérarchique quand c'est un sous-sujet (`music/piano`) |
+
+Les préfixes `post/` et `odyssey/` ont été retirés : ils répétaient le dossier, et
+séparaient le même sujet en deux pages qui s'ignoraient (`movie` 5 · `post/movie` 4).
+Le type d'une fiche d'Odyssée est déjà dit par son dossier **et** par `type:`.
+
+## Lieux : un saut à la fois, la chaîne est calculée
+
+Une note de contenu désigne un lieu : `place: "[[places/Grand-Théatre|Grand-Théatre]]"`.
+Une note de lieu désigne **son** parent, jamais la chaîne entière.
+
+Quartz ne sait pas remonter une chaîne — ses liens retour ne font qu'un pas, une base
+ne récurse pas. « Tout ce qui s'est passé en France » n'est donc pas calculable à
+partir des `parent:`. Les **étiquettes**, elles, s'agrègent seules. D'où la division du
+travail :
+
+- le lien `place:` donne la page-carrefour du lieu exact, ses liens retour, ses
+  coordonnées ;
+- `scripts/sync-vault.mjs` remonte la chaîne et écrit dans la copie une étiquette
+  `location/france/bordeaux/grand-théatre`, d'où naissent gratuitement
+  `/tags/location/france` et `/tags/location/france/bordeaux`.
+
+Rien n'est écrit deux fois. Ne jamais taper une étiquette `location/…` à la main :
+elle est déduite, et l'audit l'exclut de son contrôle de vocabulaire pour cette raison.
+
+Un lieu sans `coordinates` n'est pas tracé sur les cartes — c'est voulu pour un pays,
+dont la position ne serait qu'un centroïde. Il reste un maillon de la hiérarchie.
+
+## Cartes : un SVG engendré, jamais de tuiles
+
+`<!-- carte: world -->` dans une note publiée est remplacé à la synchronisation par un
+SVG calculé depuis les `coordinates` (`scripts/maps.mjs`). Trois cartes : `blog`,
+`odyssey`, `world`.
+
+Quartz ne rend ni `leaflet` ni `mapview`, et des tuiles seraient une requête tierce à
+chaque déplacement. Conséquence assumée : **sans fond de carte, c'est un repère, pas
+une carte.** Une définition peut recevoir `basemap: { href, bbox }` — le bbox doit être
+celui de l'image, sans quoi les points tombent à côté.
+
 ## Confidentialité : `note-properties` affiche tout
 
 `note-properties` tourne avec `includeAll: true` : **toute** clé de frontmatter d'une

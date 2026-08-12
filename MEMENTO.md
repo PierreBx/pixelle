@@ -57,14 +57,23 @@ publish: true
 created: 2026-08-12
 modified: 2026-08-12
 category: [event]
-tags: [concert]
+tags: [music]
+place: "[[places/Grand-Théatre|Grand-Théatre]]"
 description: Une phrase qui donne envie de lire — elle sert aussi d'aperçu sur les réseaux.
 ---
 ```
 
-- `category` — ce que c'est : `event`, `art`, `place`, `picture`.
-- `tags` — le sujet : `concert`, `movie`, `opera`, `recital`, `theatre`, `dance`,
-  `books`, `series`, `photo`, `picture`, `visited`.
+Trois axes, et **on n'écrit jamais deux fois la même chose** :
+
+| | | |
+| --- | --- | --- |
+| le **corpus** | le dossier | `blog/` le dit déjà — jamais dans une étiquette |
+| la **nature** | `category` | `work` · `event` · `place` · `photo` — une seule valeur |
+| la **discipline** | `tags` | `film` `series` `music` (`music/piano`) `opera` `dance` `theatre` `literature` `poetry` `photography` `fitness` `beauty` `humor` `society` `history` `science` |
+
+- `place` — le lieu exact, en lien vers une note de `places/`. La synchronisation
+  en déduit toute seule l'étiquette `location/france/bordeaux/…` : **ne l'écrivez
+  pas à la main.**
 - `created` — **mettez-la**. C'est elle qui range le billet dans l'accueil et dans
   le journal ; sans elle, il remonte en tête sans raison.
 
@@ -127,11 +136,10 @@ description: Barenboim explique en trois minutes pourquoi l'Appassionata ne se j
 - **La `description` est exigée** pour toute nouvelle trouvaille : sans elle, la
   page n'est qu'une vignette et rien n'y dit pourquoi le lien a été gardé.
   L'audit bloque. Une phrase suffit — pas un résumé du titre.
-- `tags` — une seule étiquette, prise dans celles qui existent : `post/music`,
-  `post/fitness`, `post/beauty`, `post/social`, `post/dance`, `post/humor`,
-  `post/poetry`, `post/movie`, `post/series`, `post/history`, `post/science`.
-  `post/unknown` pour ce qu'on ne sait pas classer — mieux vaut ça qu'étirer une
-  étiquette existante.
+- `tags` — une seule étiquette, prise dans le **même vocabulaire que les
+  billets** (voir le tableau plus haut). Plus de préfixe `post/` : le dossier dit
+  déjà que c'est une trouvaille, et `film` réunit désormais les billets et les
+  liens sur un seul sujet au lieu de deux pages qui s'ignorent.
 - **Laissez le lien nu.** Ne fabriquez pas de vignette ni d'`<iframe>` : la
   synchronisation télécharge l'aperçu et construit une vignette qui ne contacte
   YouTube ou Instagram qu'**au clic**. Une note qui contient déjà du HTML l'en
@@ -140,6 +148,57 @@ description: Barenboim explique en trois minutes pourquoi l'Appassionata ne se j
   importance ; une URL raccourcie à la main peut cesser de résoudre.
 
 ---
+
+## J'ajoute un lieu
+
+Un lieu est une note de `public/places/`, et il ne connaît que **son parent** —
+jamais toute la chaîne :
+
+```yaml
+---
+publish: true
+type: place
+nature: real
+map: world
+parent: "[[places/Bordeaux|Bordeaux]]"
+coordinates: 44.8419,-0.5745
+---
+
+L'opéra national de Bordeaux, place de la Comédie.
+```
+
+- `parent` — un seul saut. `Grand-Théatre → Bordeaux → France` se construit tout
+  seul, un maillon à la fois.
+- `coordinates` — `latitude,longitude`. **Un pays n'en a pas** : ce ne serait
+  qu'un centroïde, qui étirerait la carte de plusieurs centaines de kilomètres.
+  Sans coordonnées, le lieu reste un maillon de la hiérarchie sans être un point.
+- Écrivez une ligne de description : une note vide est signalée par l'audit.
+
+En retour, vous obtenez sans rien faire de plus : une page par lieu avec ses
+liens retour (« tout ce qui s'est passé ici »), les pages d'agrégat
+`/tags/location/france/bordeaux` (« tout ce qui s'est passé dans cette ville »),
+et le point sur les cartes.
+
+**Attention aux homonymes.** Un billet `Bordeaux` et un lieu `Bordeaux`
+coexistent : d'où la forme longue `[[places/Bordeaux|Bordeaux]]`, qui ne laisse
+aucun doute.
+
+## Les cartes
+
+La page `Cartes` appelle les cartes par un commentaire, seul sur sa ligne —
+invisible dans Obsidian :
+
+```markdown
+<!-- carte: blog -->
+```
+
+Trois existent : `blog` (les lieux des billets), `odyssey`, `world` (tout).
+Elles sont dessinées à la synchronisation, à partir des `coordinates`.
+
+Ce sont des **repères, pas des cartes** : les positions relatives sont justes,
+mais rien ne dessine les côtes. Une carte glissante demanderait des tuiles, donc
+une requête à un tiers à chaque déplacement — ce que ce site ne fait nulle part.
+Pour un vrai fond, il faudra fournir une image géoréférencée.
 
 ## J'ajoute un chant de l'Odyssée
 
@@ -188,6 +247,7 @@ audit rouge n'envoie rien en ligne. Voici ceux que vous rencontrerez.
 | **nouveau lien sans `description`** | écrire une phrase dans le frontmatter de la trouvaille |
 | **clé de frontmatter inédite** | une clé qu'aucune autre note ne portait devient publique ; la retirer, ou l'assumer (voir les pièges) |
 | **bloc `dataview` / `mapview` / `leaflet`** | Quartz ne sait pas les rendre ; retirer le bloc de la note publiée |
+| **`category` hors vocabulaire** | seules quatre valeurs existent : `work` · `event` · `place` · `photo` |
 | **date inutilisable** | une date écrite `null` / `none` ; mettre une vraie date |
 | **image de plus de 2 Mo** | rare ; signe qu'une image a échappé à la conversion |
 
@@ -196,7 +256,10 @@ Et ces avertissements, qui **ne bloquent pas** mais méritent un regard :
 - **note sans contenu** — un billet réduit à son frontmatter. Presque toujours un
   brouillon oublié.
 - **trouvaille déjà en ligne sans description** — signalée, jamais bloquante :
-  68 des 83 trouvailles sont dans ce cas, et on ne va pas les rattraper d'un coup.
+  69 des 83 trouvailles sont dans ce cas, et on ne va pas les rattraper d'un coup.
+- **étiquette inconnue** — une étiquette qui n'existait sur aucune autre note.
+  Le plus souvent une faute de frappe (`photgraphy`) ; parfois un sujet vraiment
+  neuf, et alors il n'y a rien à corriger. Signalé, jamais bloquant.
 - **lien vers une note privée ou pas encore écrite** — attendu, le lien s'affiche
   en texte simple. Rien de privé n'est copié, mais le **titre** de la note visée
   apparaît dans le HTML : si ce titre est révélateur, retirez le lien.

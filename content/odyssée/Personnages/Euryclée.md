@@ -2,7 +2,6 @@
 publish: true
 type: character
 nature: mortal
-tags: [odyssey/character]
 father: "[[Ops]]"
 mother:
 spouse:

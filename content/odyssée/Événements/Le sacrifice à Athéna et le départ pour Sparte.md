@@ -1,7 +1,6 @@
 ---
 publish: true
 type: event
-tags: [odyssey/event]
 location: "[[Pylos]]"
 participants: ["[[Nestor]]", "[[Télémaque]]", "[[Pisistrate]]"]
 song: "[[Chant 03]]"

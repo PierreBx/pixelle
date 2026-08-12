@@ -1,8 +1,6 @@
 ---
 publish: true
 type: event
-tags:
-  - odyssey/event
 location: "[[Olympe]]"
 participants:
   - "[[Zeus]]"

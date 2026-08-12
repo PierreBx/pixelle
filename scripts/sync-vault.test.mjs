@@ -267,6 +267,79 @@ test("deux images de même nom à l'extension près gardent leur nom d'origine",
   assert.match(out, /collision/i, "la collision doit être signalée")
 })
 
+// ── Hiérarchie des lieux ────────────────────────────────────────────────────
+
+const place = (parent, coords) =>
+  "---\npublish: true\ntype: place\ncreated: 2026-01-01\n" +
+  (parent ? `parent: "[[places/${parent}|${parent}]]"\n` : "") +
+  (coords ? `coordinates: ${coords}\n` : "") +
+  "---\n\nun lieu\n"
+
+test("l'étiquette de lieu est déduite de la chaîne des parents", () => {
+  const vault = makeVault({
+    "public/blog/Concert.md": note("soirée", 'place: "[[places/Grand-Théatre|Grand-Théatre]]"\n'),
+    "public/places/France.md": place(null, null),
+    "public/places/Bordeaux.md": place("France", "44.8378,-0.5792"),
+    "public/places/Grand-Théatre.md": place("Bordeaux", "44.8419,-0.5745"),
+  })
+  const content = makeContentDir()
+  const { code } = sync(vault, content)
+  assert.equal(code, 0)
+  const body = readFileSync(path.join(content, "blog/Concert.md"), "utf8")
+  assert.match(
+    body,
+    /location\/france\/bordeaux\/grand-théatre/,
+    `étiquette absente, obtenu :\n${body}`,
+  )
+})
+
+test("une chaîne qui bute sur un lieu non publié s'arrête sans casser", () => {
+  const vault = makeVault({
+    "public/blog/A.md": note("x", 'place: "[[places/Salle|Salle]]"\n'),
+    "public/places/Salle.md": place("Secret", "44.0,0.0"),
+    "private/places/Secret.md": "---\npublish: false\ntype: place\n---\n\nprivé\n",
+  })
+  const content = makeContentDir()
+  const { code, out } = sync(vault, content)
+  assert.equal(code, 0)
+  const body = readFileSync(path.join(content, "blog/A.md"), "utf8")
+  assert.match(body, /location\/salle/, "la partie connue de la chaîne doit rester")
+  assert.doesNotMatch(body, /secret/i, "un lieu non publié n'a rien à faire dans une étiquette")
+  assert.match(out, /n'est pas un lieu publié/)
+})
+
+test("un cycle dans la hiérarchie est signalé, pas suivi", () => {
+  const vault = makeVault({
+    "public/blog/A.md": note("x", 'place: "[[places/Boucle|Boucle]]"\n'),
+    "public/places/Boucle.md": place("Autre", "1,1"),
+    "public/places/Autre.md": place("Boucle", "2,2"),
+  })
+  const { code, out } = sync(vault, makeContentDir())
+  assert.equal(code, 0)
+  assert.match(out, /cycle/)
+})
+
+test("une carte est dessinée à la place de son marqueur", () => {
+  const vault = makeVault({
+    "public/Cartes.md": note("<!-- carte: world -->"),
+    "public/places/Ville.md": place(null, "44.84,-0.57"),
+  })
+  const content = makeContentDir()
+  sync(vault, content)
+  const body = readFileSync(path.join(content, "Cartes.md"), "utf8")
+  assert.match(body, /<svg class="pixelle-map"/)
+  assert.match(body, /Ville/)
+  assert.doesNotMatch(body, /<!-- carte:/, "le marqueur doit avoir disparu")
+})
+
+test("un marqueur de carte inconnu est laissé tel quel et signalé", () => {
+  const vault = makeVault({ "public/A.md": note("<!-- carte: lune -->") })
+  const content = makeContentDir()
+  const { out } = sync(vault, content)
+  assert.match(readFileSync(path.join(content, "A.md"), "utf8"), /<!-- carte: lune -->/)
+  assert.match(out, /carte inconnue/)
+})
+
 // ── Confidentialité ─────────────────────────────────────────────────────────
 
 test("un lien vers une note non publiée ne l'entraîne pas dans content/", () => {

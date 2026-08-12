@@ -2,8 +2,6 @@
 publish: true
 type: song
 number: 1
-tags:
-  - odyssey/song
 characters:
   - "[[Ulysse]]"
   - "[[Pénélope]]"

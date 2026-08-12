@@ -2,8 +2,6 @@
 publish: true
 type: song
 number: 3
-tags:
-  - odyssey/song
 characters:
   - "[[Télémaque]]"
   - "[[Athéna]]"

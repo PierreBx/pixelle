@@ -2,8 +2,6 @@
 publish: true
 type: song
 number: 2
-tags:
-  - odyssey/song
 characters:
   - "[[Télémaque]]"
   - "[[Pénélope]]"

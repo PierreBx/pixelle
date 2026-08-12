@@ -5,7 +5,8 @@ category:
   - event
 tags:
   - theatre
-place: "[[Carré St-Médard]]"
+  - location/france/saint-médard-en-jalles/carré-st-médard
+place: "[[places/Carré St-Médard|Carré St-Médard]]"
 author:
   - "[[Mohamed El Khatib]]"
 created: 2026-04-09

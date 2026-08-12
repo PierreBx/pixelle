@@ -1,13 +1,12 @@
 ---
 publish: true
 date: 2026-04-20
-tags:
-  - concert
-place: "[[Auditorium]]"
+place: "[[places/Auditorium|Auditorium]]"
 category:
   - event
 created: 2026-04-21
 modified: 2026-04-21
+tags: [music, location/france/bordeaux/auditorium]
 ---
 
 **Récital piano**

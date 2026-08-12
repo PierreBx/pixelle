@@ -2,10 +2,10 @@
 publish: true
 date: 2026-04-25
 category: [event]
-tags: [recital]
-place: "[[Auditorium]]"
+place: "[[places/Auditorium|Auditorium]]"
 created: 2026-05-20
 modified: 2026-05-20
+tags: [music, location/france/bordeaux/auditorium]
 ---
 
 ![[2026-05-20-Jakub Josef Orlinski - If Music.webp|Portrait en noir et blanc de Jakub Józef Orliński, de profil]]

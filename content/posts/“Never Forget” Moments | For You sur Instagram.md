@@ -1,9 +1,8 @@
 ---
 created: 2026-08-09
 modified: 2026-08-09
-tags:
-  - post/humor
 publish: true
+tags: [humor]
 ---
 
 <div class="ig-embed" role="button" tabindex="0" aria-label="Ouvrir la publication Instagram : “Never Forget” Moments | For You sur Instagram" data-ig="DbT9PHUSCBw" data-title="“Never Forget” Moments | For You sur Instagram" onclick="const f=document.createElement('iframe');f.src='https://www.instagram.com/p/'+this.dataset.ig+'/embed';f.title=this.dataset.title||'Publication Instagram';f.className='ig-player';f.setAttribute('scrolling','no');f.allow='encrypted-media; picture-in-picture';f.allowFullscreen=true;this.replaceWith(f)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">

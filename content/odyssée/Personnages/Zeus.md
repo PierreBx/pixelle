@@ -2,7 +2,6 @@
 publish: true
 type: character
 nature: god
-tags: [odyssey/character]
 father: "[[Cronos]]"
 mother:
 spouse:

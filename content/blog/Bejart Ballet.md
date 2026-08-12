@@ -5,7 +5,8 @@ category:
   - event
 tags:
   - dance
-place: "[[Arkéa Arena]]"
+  - location/france/floirac/arkéa-arena
+place: "[[places/Arkéa Arena|Arkéa Arena]]"
 created: 2026-04-08
 modified: 2026-04-10
 ---
